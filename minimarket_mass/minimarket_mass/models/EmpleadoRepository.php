@@ -1,0 +1,27 @@
+<?php
+// M: login por DNI (no hay usuario ni contraseña). Devuelve el objeto según el rol.
+require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/Cajero.php';
+require_once __DIR__ . '/Almacenero.php';
+require_once __DIR__ . '/Administrador.php';
+
+class EmpleadoRepository
+{
+    public function buscarPorDni(string $dni): ?Empleado
+    {
+        $st = Database::conectar()->prepare(
+            "SELECT e.id_empleado, e.nombres, e.apellidos, e.dni, e.id_tienda, UPPER(r.nombre_rol) AS rol
+               FROM empleado e JOIN rol r ON r.id_rol = e.id_rol
+              WHERE e.dni = ? AND e.estado = 'ACTIVO'"
+        );
+        $st->execute([$dni]);
+        $f = $st->fetch();
+        if (!$f) return null;
+        $args = [(int)$f['id_empleado'], $f['nombres'], $f['apellidos'], $f['dni'], (int)$f['id_tienda']];
+        return match ($f['rol']) {
+            'ADMINISTRADOR' => new Administrador(...$args),
+            'ALMACENERO'    => new Almacenero(...$args),
+            default         => new Cajero(...$args),
+        };
+    }
+}
