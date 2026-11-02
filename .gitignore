@@ -1,0 +1,13 @@
+# Credenciales y configuración local
+.env
+
+# Dependencias y archivos generados
+vendor/
+*.log
+uploads/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
