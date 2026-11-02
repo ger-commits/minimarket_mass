@@ -22,7 +22,7 @@ minimarket_mass/
 
 ## Base de datos
 
-La base tiene **26 tablas**. Ejecuta los scripts de `database/` en este orden:
+La base tiene **30 tablas**. Ejecuta los scripts de `database/` en este orden:
 
 1. `schema.sql`: crea la base y las tablas (**borra** `minimarket_mass` si ya existía)
 2. `datos.sql`: datos de prueba
@@ -50,12 +50,12 @@ El diseño completo está en [`docs/diseno_bd.md`](docs/diseno_bd.md) y el diagr
 
 | Ruta | Qué muestra |
 |------|-------------|
-| `index.php?r=login` | Inicio de sesión con el DNI del empleado |
+| `index.php?r=login` | Inicio de sesión con el DNI y la contraseña del empleado |
 | `index.php?r=productos` | Lista de productos |
 | `index.php?r=stock&tienda=1` | Stock de una tienda |
 | `index.php?r=boleta&serie=B001&n=1` | Boleta de una venta |
 
-Para probar el login usa un DNI de `datos.sql`, por ejemplo `70000001`.
+El login pide DNI y contraseña. Los empleados de prueba están en `datos.sql` (por ejemplo, el DNI `70000001`); sus contraseñas se guardan como hash bcrypt, nunca en texto.
 
 ## Roles
 
