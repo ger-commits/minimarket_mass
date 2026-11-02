@@ -155,18 +155,20 @@ CREATE TABLE producto (
    NIVEL 3 - Dependen de tablas de los niveles 1 y 2
    --------------------------------------------------------------------- */
 
--- Empleados: cada uno pertenece a una tienda, tiene un rol y entra al sistema con su DNI.
+-- Empleados: cada uno pertenece a una tienda, tiene un rol y entra al sistema con su DNI y su contrasena.
 CREATE TABLE empleado (
     id_empleado MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT,
     nombres     VARCHAR(60)        NOT NULL,
     apellidos   VARCHAR(60)        NOT NULL,
     dni         CHAR(8)            NOT NULL,                     -- con el DNI ingresa al sistema
+    contrasena  VARCHAR(255)       NOT NULL,                     -- HASH de la contrasena (bcrypt o argon2); nunca el texto
     estado      VARCHAR(10)        NOT NULL DEFAULT 'ACTIVO',
     id_tienda   SMALLINT UNSIGNED  NOT NULL,
     id_rol      TINYINT UNSIGNED   NOT NULL,
     CONSTRAINT pk_empleado PRIMARY KEY (id_empleado),
     CONSTRAINT uq_empleado_dni UNIQUE (dni),
     CONSTRAINT ck_empleado_dni CHECK (dni REGEXP '^[0-9]{8}$'),
+    CONSTRAINT ck_empleado_contrasena CHECK (CHAR_LENGTH(contrasena) >= 60),   -- un hash mide 60 o mas; evita guardar la clave en texto
     CONSTRAINT ck_empleado_estado CHECK (estado IN ('ACTIVO','INACTIVO')),
     CONSTRAINT fk_empleado_tienda FOREIGN KEY (id_tienda) REFERENCES tienda (id_tienda),
     CONSTRAINT fk_empleado_rol FOREIGN KEY (id_rol) REFERENCES rol (id_rol)
@@ -213,7 +215,7 @@ CREATE TABLE stock (
 ) ENGINE=InnoDB;
 
 /* ---------------------------------------------------------------------
-   NIVEL 4 - Turnos, traslados y mermas
+   NIVEL 4 - Turnos, traslados, mermas y lotes
    --------------------------------------------------------------------- */
 
 -- Turno de caja: un cajero abre una caja con un monto inicial y la cierra al terminar.
@@ -263,8 +265,24 @@ CREATE TABLE merma (
     CONSTRAINT fk_merma_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
 ) ENGINE=InnoDB;
 
+-- Lotes de productos perecibles en cada tienda: codigo de lote, fecha de vencimiento y cantidad que queda.
+CREATE TABLE lote_producto (
+    id_lote           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+    codigo_lote       VARCHAR(20)       NOT NULL,
+    fecha_vencimiento DATE              NOT NULL,
+    cantidad_inicial  DECIMAL(10,3)     NOT NULL,                -- lo que llego en el lote
+    cantidad_actual   DECIMAL(10,3)     NOT NULL,                -- lo que queda en la tienda
+    id_tienda         SMALLINT UNSIGNED NOT NULL,
+    id_producto       INT UNSIGNED      NOT NULL,
+    CONSTRAINT pk_lote PRIMARY KEY (id_lote),
+    CONSTRAINT uq_lote_codigo UNIQUE (id_tienda, id_producto, codigo_lote),
+    CONSTRAINT ck_lote_inicial CHECK (cantidad_inicial > 0),
+    CONSTRAINT ck_lote_actual CHECK (cantidad_actual >= 0 AND cantidad_actual <= cantidad_inicial),
+    CONSTRAINT fk_lote_stock FOREIGN KEY (id_tienda, id_producto) REFERENCES stock (id_tienda, id_producto)
+) ENGINE=InnoDB;
+
 /* ---------------------------------------------------------------------
-   NIVEL 5 - Ventas
+   NIVEL 5 - Ventas y movimientos de caja
    --------------------------------------------------------------------- */
 
 -- Cabecera de la venta: comprobante (serie + correlativo), turno de caja y cliente opcional.
@@ -287,8 +305,26 @@ CREATE TABLE venta (
     CONSTRAINT fk_venta_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente)
 ) ENGINE=InnoDB;
 
+-- Movimientos de efectivo de un turno de caja que no son ventas: ingresos, retiros, gastos y devoluciones de dinero.
+CREATE TABLE movimiento_caja (
+    id_movimiento_caja INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    fecha_hora         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tipo               VARCHAR(10)   NOT NULL,                   -- INGRESO, RETIRO, GASTO o DEVOLUCION
+    monto              DECIMAL(10,2) NOT NULL,
+    motivo             VARCHAR(100)  NOT NULL,
+    id_caja_turno      INT UNSIGNED  NOT NULL,
+    id_venta           BIGINT UNSIGNED NULL,                     -- opcional: solo en DEVOLUCION (venta de la que se devuelve el dinero)
+    CONSTRAINT pk_movimiento_caja PRIMARY KEY (id_movimiento_caja),
+    CONSTRAINT ck_movcaja_tipo CHECK (tipo IN ('INGRESO','RETIRO','GASTO','DEVOLUCION')),
+    CONSTRAINT ck_movcaja_monto CHECK (monto > 0),
+    CONSTRAINT ck_movcaja_venta CHECK (
+        (tipo = 'DEVOLUCION' AND id_venta IS NOT NULL) OR (tipo <> 'DEVOLUCION' AND id_venta IS NULL)),
+    CONSTRAINT fk_movcaja_turno FOREIGN KEY (id_caja_turno) REFERENCES caja_turno (id_caja_turno),
+    CONSTRAINT fk_movcaja_venta FOREIGN KEY (id_venta) REFERENCES venta (id_venta)
+) ENGINE=InnoDB;
+
 /* ---------------------------------------------------------------------
-   NIVEL 6 - Detalle, anulaciones y pagos de la venta
+   NIVEL 6 - Detalle, anulaciones, pagos y devoluciones de la venta
    --------------------------------------------------------------------- */
 
 -- Lineas de la venta: producto, cantidad, precio al momento de vender e importe.
@@ -335,8 +371,20 @@ CREATE TABLE pago_venta (
     CONSTRAINT fk_pago_metodo FOREIGN KEY (id_metodo_pago) REFERENCES metodo_pago (id_metodo_pago)
 ) ENGINE=InnoDB;
 
+-- Devolucion parcial de productos de una venta emitida. El dinero sale de la caja como un movimiento_caja de tipo DEVOLUCION.
+CREATE TABLE devolucion_venta (
+    id_devolucion  INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    fecha_hora     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    motivo         VARCHAR(150)    NOT NULL,
+    monto_devuelto DECIMAL(10,2)   NOT NULL,                     -- suma de los importes devueltos
+    id_venta       BIGINT UNSIGNED NOT NULL,
+    CONSTRAINT pk_devolucion PRIMARY KEY (id_devolucion),
+    CONSTRAINT ck_devolucion_monto CHECK (monto_devuelto > 0),
+    CONSTRAINT fk_devolucion_venta FOREIGN KEY (id_venta) REFERENCES venta (id_venta)
+) ENGINE=InnoDB;
+
 /* ---------------------------------------------------------------------
-   NIVEL 7 - Subtipos de pago y kardex
+   NIVEL 7 - Subtipos de pago, detalle de devolucion y kardex
    --------------------------------------------------------------------- */
 
 -- Detalle del pago en efectivo (subtipo de pago_venta; su llave primaria es tambien foranea).
@@ -374,7 +422,22 @@ CREATE TABLE billetera_digital_sip (
     CONSTRAINT fk_billetera_pago FOREIGN KEY (id_pago) REFERENCES pago_venta (id_pago)
 ) ENGINE=InnoDB;
 
--- Kardex: cada cambio de stock, con un unico origen (venta, traslado o merma).
+-- Lineas de la devolucion: que linea de la venta se devuelve y cuanto.
+CREATE TABLE detalle_devolucion (
+    id_detalle_devolucion INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    cantidad              DECIMAL(10,3)   NOT NULL,
+    importe               DECIMAL(10,2)   NOT NULL,              -- cantidad x precio_unitario de la linea vendida
+    id_devolucion         INT UNSIGNED    NOT NULL,
+    id_detalle_venta      BIGINT UNSIGNED NOT NULL,
+    CONSTRAINT pk_detalle_devolucion PRIMARY KEY (id_detalle_devolucion),
+    CONSTRAINT uq_detalle_devolucion UNIQUE (id_devolucion, id_detalle_venta),
+    CONSTRAINT ck_detdev_cantidad CHECK (cantidad > 0),
+    CONSTRAINT ck_detdev_importe CHECK (importe > 0),
+    CONSTRAINT fk_detdev_devolucion FOREIGN KEY (id_devolucion) REFERENCES devolucion_venta (id_devolucion),
+    CONSTRAINT fk_detdev_detalle FOREIGN KEY (id_detalle_venta) REFERENCES detalle_venta (id_detalle_venta)
+) ENGINE=InnoDB;
+
+-- Kardex: cada cambio de stock, con un unico origen (venta, traslado, merma o devolucion).
 CREATE TABLE movimiento_stock (
     id_movimiento      BIGINT UNSIGNED    NOT NULL AUTO_INCREMENT,
     fecha_hora         DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -388,15 +451,19 @@ CREATE TABLE movimiento_stock (
     id_venta           BIGINT UNSIGNED    NULL,                  -- origen (uno solo)
     id_traslado        INT UNSIGNED       NULL,                  -- origen (uno solo)
     id_merma           INT UNSIGNED       NULL,                  -- origen (uno solo)
+    id_devolucion      INT UNSIGNED       NULL,                  -- origen (uno solo)
+    id_lote            INT UNSIGNED       NULL,                  -- lote afectado (solo productos con lote)
     CONSTRAINT pk_movimiento PRIMARY KEY (id_movimiento),
     CONSTRAINT ck_movimiento_cantidad CHECK (cantidad > 0),
     CONSTRAINT ck_movimiento_saldo CHECK (stock_nuevo >= 0),
     CONSTRAINT ck_movimiento_origen CHECK (
-        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) = 1),
+        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) = 1),
     CONSTRAINT fk_movimiento_stock FOREIGN KEY (id_tienda, id_producto) REFERENCES stock (id_tienda, id_producto),
     CONSTRAINT fk_movimiento_tipo FOREIGN KEY (id_tipo_movimiento) REFERENCES tipo_movimiento (id_tipo_movimiento),
     CONSTRAINT fk_movimiento_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
     CONSTRAINT fk_movimiento_venta FOREIGN KEY (id_venta) REFERENCES venta (id_venta),
     CONSTRAINT fk_movimiento_traslado FOREIGN KEY (id_traslado) REFERENCES traslado_mercaderia (id_traslado),
-    CONSTRAINT fk_movimiento_merma FOREIGN KEY (id_merma) REFERENCES merma (id_merma)
+    CONSTRAINT fk_movimiento_merma FOREIGN KEY (id_merma) REFERENCES merma (id_merma),
+    CONSTRAINT fk_movimiento_devolucion FOREIGN KEY (id_devolucion) REFERENCES devolucion_venta (id_devolucion),
+    CONSTRAINT fk_movimiento_lote FOREIGN KEY (id_lote) REFERENCES lote_producto (id_lote)
 ) ENGINE=InnoDB;

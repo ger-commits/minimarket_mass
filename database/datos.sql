@@ -10,8 +10,12 @@
      - los pagos validos de cada venta suman su total;
      - el stock actual = stock inicial + entradas - salidas del kardex;
      - el cajero vende solo con su turno abierto, en la tienda de su caja;
-     - la venta anulada tiene su anulacion, sus pagos ANULADOS y su movimiento de devolucion.
-   DNI, RUC, telefonos, codigos de barras y precios son inventados.
+     - la venta anulada tiene su anulacion, sus pagos ANULADOS y su movimiento de entrada al kardex;
+     - los productos con lote (leche evaporada y yogurt) salen del lote que vence primero y
+       el stock de la tienda es la suma de sus lotes; un lote vencido solo sale como merma;
+     - la devolucion se hace sobre una venta emitida pagada en efectivo, vuelve al stock y su dinero sale de la caja;
+     - el monto de cierre de cada turno = inicial + efectivo cobrado + ingresos - retiros - gastos - devoluciones.
+   DNI, RUC, telefonos, codigos de barras, precios y contrasenas de prueba son inventados.
    ===================================================================== */
 
 USE minimarket_mass;
@@ -71,7 +75,8 @@ INSERT INTO tipo_movimiento (id_tipo_movimiento, nombre_movimiento, efecto) VALU
     (2, 'ANULACION DE VENTA', 'E'),
     (3, 'TRASLADO DE SALIDA', 'S'),
     (4, 'TRASLADO DE ENTRADA', 'E'),
-    (5, 'MERMA', 'S');
+    (5, 'MERMA', 'S'),
+    (6, 'DEVOLUCION DE CLIENTE', 'E');
 
 -- ===== NIVEL 2 =====
 
@@ -97,16 +102,17 @@ INSERT INTO producto (id_producto, nombre_producto, codigo_barras, precio_venta,
 
 -- ===== NIVEL 3 =====
 
-INSERT INTO empleado (id_empleado, nombres, apellidos, dni, estado, id_tienda, id_rol) VALUES
-    (1, 'Rosa', 'Quispe Huaman', '70000001', 'ACTIVO', 1, 1),
-    (2, 'Luis', 'Caceres Pinto', '70000002', 'ACTIVO', 1, 2),
-    (3, 'Carmen', 'Ccori Flores', '70000003', 'ACTIVO', 1, 3),
-    (4, 'Jorge', 'Mendoza Salas', '70000004', 'ACTIVO', 2, 1),
-    (5, 'Ana', 'Valdivia Rojas', '70000005', 'ACTIVO', 2, 2),
-    (6, 'Pedro', 'Choque Ramos', '70000006', 'ACTIVO', 2, 3),
-    (7, 'Lucia', 'Zegarra Paredes', '70000007', 'ACTIVO', 3, 1),
-    (8, 'Miguel', 'Nunez Cuadros', '70000008', 'ACTIVO', 3, 2),
-    (9, 'Sofia', 'Linares Avila', '70000009', 'ACTIVO', 3, 3);
+-- Contrasena de prueba de los 9 empleados: Mass2026. Solo se guarda su hash bcrypt (cada uno con su propia sal), nunca el texto
+INSERT INTO empleado (id_empleado, nombres, apellidos, dni, contrasena, estado, id_tienda, id_rol) VALUES
+    (1, 'Rosa', 'Quispe Huaman', '70000001', '$2y$10$BpG9u/msAD5LpBGR4farAeGzMOuu51Aq.pD6zoPUMYKWq0efsLTau', 'ACTIVO', 1, 1),
+    (2, 'Luis', 'Caceres Pinto', '70000002', '$2y$10$tvmvh8HBB.bVlVzjTC5NAuS0REWwO5s4qLR4qQlIAIhV8mH9Xr9R6', 'ACTIVO', 1, 2),
+    (3, 'Carmen', 'Ccori Flores', '70000003', '$2y$10$l9F/sllMhY0Brx.uhiOxseg9dUZxdN5My1QoexfckQ4XooY2mf7da', 'ACTIVO', 1, 3),
+    (4, 'Jorge', 'Mendoza Salas', '70000004', '$2y$10$HCZgbocJet3bD0K2uYa4vuwxU2KaEAcxz3nkGIojMG3XYPxujh3ga', 'ACTIVO', 2, 1),
+    (5, 'Ana', 'Valdivia Rojas', '70000005', '$2y$10$nxkoWpX0lLSBFoUZ2MkxEuJBxO/P/6KKu49GUhzb9QfVY6UhgbLma', 'ACTIVO', 2, 2),
+    (6, 'Pedro', 'Choque Ramos', '70000006', '$2y$10$sKqkfMucy4LIfZXK5h26aeS5yKg6M3E3Ju1rs3OhIPC7YYTGNJPUO', 'ACTIVO', 2, 3),
+    (7, 'Lucia', 'Zegarra Paredes', '70000007', '$2y$10$6Dg9SCHvHNHtTyrEl6P2i.dwdVQvbaB3i5F..XwjXKYdGZ7wfQQma', 'ACTIVO', 3, 1),
+    (8, 'Miguel', 'Nunez Cuadros', '70000008', '$2y$10$IheLEX8mKswcWmuA/Ej3FuwXIOFGDD/L7YIWaejh26EyrkJ/Ux8Ya', 'ACTIVO', 3, 2),
+    (9, 'Sofia', 'Linares Avila', '70000009', '$2y$10$eT/Va7ljphhMElspWu..4e0CX7iNhrrxVr2ftwr8hZcw7KNVTeakq', 'ACTIVO', 3, 3);
 
 INSERT INTO caja (id_caja, numero_caja, estado, id_tienda) VALUES
     (1, 1, 'ACTIVA', 1),
@@ -146,14 +152,14 @@ INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) VALUES
     (2, 5, 100.000, 20.000),
     (2, 6, 20.000, 20.000),
     (2, 7, 100.000, 20.000),
-    (2, 8, 57.000, 10.000),
+    (2, 8, 57.500, 10.000),
     (2, 9, 56.000, 10.000),
     (2, 10, 98.000, 20.000),
     (2, 11, 99.000, 20.000),
     (2, 12, 60.000, 10.000),
     (3, 1, 16.000, 20.000),
     (3, 2, 120.000, 20.000),
-    (3, 3, 98.000, 20.000),
+    (3, 3, 99.000, 20.000),
     (3, 4, 96.000, 20.000),
     (3, 5, 94.000, 20.000),
     (3, 6, 97.000, 20.000),
@@ -166,12 +172,12 @@ INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) VALUES
 
 -- ===== NIVEL 4 =====
 
--- Turnos 1 a 4 cerrados (monto de cierre = inicial + efectivo cobrado); turnos 5 y 6 abiertos
+-- Turnos 1 a 4 cerrados (cierre = inicial + efectivo + ingresos - retiros - gastos - devoluciones); turnos 5 y 6 abiertos
 INSERT INTO caja_turno (id_caja_turno, fecha_hora_apertura, monto_inicial, fecha_hora_cierre, monto_cierre, estado, id_caja, id_empleado) VALUES
-    (1, '2026-10-17 08:00:00', 100.00, '2026-10-17 16:00:00', 150.70, 'CERRADO', 1, 2),
+    (1, '2026-10-17 08:00:00', 100.00, '2026-10-17 16:00:00', 50.70, 'CERRADO', 1, 2),
     (2, '2026-10-17 08:00:00', 100.00, '2026-10-17 16:00:00', 100.00, 'CERRADO', 3, 5),
-    (3, '2026-10-18 08:00:00', 100.00, '2026-10-18 16:00:00', 100.00, 'CERRADO', 1, 2),
-    (4, '2026-10-18 08:00:00', 100.00, '2026-10-18 16:00:00', 151.30, 'CERRADO', 5, 8),
+    (3, '2026-10-18 08:00:00', 100.00, '2026-10-18 16:00:00', 141.50, 'CERRADO', 1, 2),
+    (4, '2026-10-18 08:00:00', 100.00, '2026-10-18 16:00:00', 144.80, 'CERRADO', 5, 8),
     (5, '2026-10-19 08:00:00', 100.00, NULL, NULL, 'ABIERTO', 1, 2),
     (6, '2026-10-19 08:00:00', 100.00, NULL, NULL, 'ABIERTO', 3, 5);
 
@@ -183,6 +189,21 @@ INSERT INTO traslado_mercaderia (id_traslado, fecha_hora, observacion, id_tienda
 INSERT INTO merma (id_merma, fecha_hora, motivo, observacion, id_empleado) VALUES
     (1, '2026-10-18 12:00:00', 'VENCIDO', 'Leche evaporada fuera de fecha', 9),
     (2, '2026-10-19 09:00:00', 'DAÑADO', 'Papa golpeada en el traslado', 3);
+
+-- Lotes de leche evaporada (1) y yogurt (11) en cada tienda. cantidad_actual = lo que queda del lote. El lote L3-2608A de Yanahuara ya vencio
+INSERT INTO lote_producto (id_lote, codigo_lote, fecha_vencimiento, cantidad_inicial, cantidad_actual, id_tienda, id_producto) VALUES
+    (1, 'L1-2610A', '2026-11-30', 40.000, 38.000, 1, 1),
+    (2, 'L1-2701B', '2027-03-15', 60.000, 60.000, 1, 1),
+    (3, 'Y1-2610A', '2026-11-08', 30.000, 30.000, 1, 11),
+    (4, 'Y1-2611B', '2026-12-20', 70.000, 70.000, 1, 11),
+    (5, 'L2-2610A', '2026-12-05', 40.000, 36.000, 2, 1),
+    (6, 'L2-2701B', '2027-03-20', 60.000, 60.000, 2, 1),
+    (7, 'Y2-2610A', '2026-11-12', 30.000, 29.000, 2, 11),
+    (8, 'Y2-2611B', '2026-12-22', 70.000, 70.000, 2, 11),
+    (9, 'L3-2608A', '2026-10-16', 3.000, 0.000, 3, 1),
+    (10, 'L3-2701B', '2027-02-20', 21.000, 16.000, 3, 1),
+    (11, 'Y3-2610A', '2026-11-15', 30.000, 30.000, 3, 11),
+    (12, 'Y3-2611B', '2026-12-24', 70.000, 70.000, 3, 11);
 
 -- ===== NIVEL 5: ventas =====
 
@@ -203,7 +224,16 @@ INSERT INTO venta (id_venta, numero_correlativo, fecha_hora, total, estado, id_s
     (13, 3, '2026-10-19 10:05:00', 99.80, 'EMITIDA', 2, 5, 2),
     (14, 4, '2026-10-19 11:30:00', 17.25, 'EMITIDA', 3, 6, NULL);
 
--- ===== NIVEL 6: detalle, anulaciones y pagos =====
+-- Ingresos, retiros, gastos y devoluciones de dinero dentro de un turno de caja (no son ventas). Las DEVOLUCION indican la venta
+INSERT INTO movimiento_caja (id_movimiento_caja, fecha_hora, tipo, monto, motivo, id_caja_turno, id_venta) VALUES
+    (1, '2026-10-17 13:00:00', 'RETIRO', 100.00, 'Retiro de seguridad a la caja fuerte', 1, NULL),
+    (2, '2026-10-18 12:00:00', 'INGRESO', 50.00, 'Sencillo entregado por la administracion', 3, NULL),
+    (3, '2026-10-18 14:00:00', 'GASTO', 8.50, 'Compra de rollos de papel para la caja', 3, NULL),
+    (4, '2026-10-18 15:00:00', 'DEVOLUCION', 6.50, 'Devolucion de dinero: Gaseosa con el envase danado', 4, 6),
+    (5, '2026-10-19 10:30:00', 'RETIRO', 50.00, 'Retiro de seguridad a la caja fuerte', 5, NULL),
+    (6, '2026-10-19 12:00:00', 'DEVOLUCION', 1.25, 'Devolucion de dinero: Papa en mal estado', 6, 14);
+
+-- ===== NIVEL 6: detalle, anulaciones, pagos y devoluciones =====
 
 -- precio_unitario es la copia del precio del producto al vender
 INSERT INTO detalle_venta (id_detalle_venta, cantidad, precio_unitario, importe, id_venta, id_producto) VALUES
@@ -265,7 +295,12 @@ INSERT INTO pago_venta (id_pago, monto_pagado, fecha_hora, estado, id_venta, id_
     (16, 49.80, '2026-10-19 10:05:00', 'VALIDO', 13, 2),
     (17, 17.25, '2026-10-19 11:30:00', 'VALIDO', 14, 1);
 
--- ===== NIVEL 7: subtipos de pago y kardex =====
+-- Devoluciones parciales de ventas pagadas en efectivo; su dinero sale de la caja como movimiento_caja DEVOLUCION
+INSERT INTO devolucion_venta (id_devolucion, fecha_hora, motivo, monto_devuelto, id_venta) VALUES
+    (1, '2026-10-18 15:00:00', 'Gaseosa con el envase danado', 6.50, 6),
+    (2, '2026-10-19 12:00:00', 'Papa en mal estado', 1.25, 14);
+
+-- ===== NIVEL 7: subtipos de pago, detalle de devolucion y kardex =====
 
 INSERT INTO efectivo (id_pago, monto_recibido, vuelto) VALUES
     (1, 20.00, 5.80),
@@ -291,45 +326,52 @@ INSERT INTO billetera_digital_sip (id_pago, modalidad_pago, codigo_operacion) VA
     (10, 'QR', 'SIP-EJEMPLO-0003'),
     (14, 'QR', 'SIP-EJEMPLO-0004');
 
+-- Linea de la venta que se devuelve; importe = cantidad x precio_unitario de esa linea
+INSERT INTO detalle_devolucion (id_detalle_devolucion, cantidad, importe, id_devolucion, id_detalle_venta) VALUES
+    (1, 1.000, 6.50, 1, 13),
+    (2, 0.500, 1.25, 2, 33);
+
 -- Kardex en orden cronologico; stock_nuevo es el saldo despues de cada movimiento
-INSERT INTO movimiento_stock (id_movimiento, fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_venta, id_traslado, id_merma) VALUES
-    (1, '2026-10-17 09:15:00', 2.000, 98.000, NULL, 1, 1, 1, 2, 1, NULL, NULL),
-    (2, '2026-10-17 09:15:00', 1.000, 99.000, NULL, 1, 7, 1, 2, 1, NULL, NULL),
-    (3, '2026-10-17 09:15:00', 0.800, 59.200, NULL, 1, 8, 1, 2, 1, NULL, NULL),
-    (4, '2026-10-17 11:40:00', 6.000, 94.000, NULL, 1, 3, 1, 2, 2, NULL, NULL),
-    (5, '2026-10-17 11:40:00', 12.000, 88.000, NULL, 1, 5, 1, 2, 2, NULL, NULL),
-    (6, '2026-10-17 11:40:00', 3.000, 97.000, NULL, 1, 4, 1, 2, 2, NULL, NULL),
-    (7, '2026-10-17 12:30:00', 1.000, 20.000, NULL, 2, 6, 1, 5, 3, NULL, NULL),
-    (8, '2026-10-17 12:30:00', 1.500, 58.500, NULL, 2, 9, 1, 5, 3, NULL, NULL),
-    (9, '2026-10-17 14:05:00', 1.000, 99.000, NULL, 1, 2, 1, 2, 4, NULL, NULL),
-    (10, '2026-10-17 14:20:00', 1.000, 100.000, NULL, 1, 2, 2, 1, 4, NULL, NULL),
-    (11, '2026-10-17 15:00:00', 2.000, 98.000, NULL, 2, 10, 1, 5, 5, NULL, NULL),
-    (12, '2026-10-17 15:00:00', 1.000, 99.000, NULL, 2, 11, 1, 5, 5, NULL, NULL),
-    (13, '2026-10-18 09:30:00', 3.000, 21.000, NULL, 3, 1, 1, 8, 6, NULL, NULL),
-    (14, '2026-10-18 09:30:00', 2.000, 98.000, NULL, 3, 3, 1, 8, 6, NULL, NULL),
-    (15, '2026-10-18 10:00:00', 20.000, 80.000, NULL, 1, 2, 3, 3, NULL, 1, NULL),
-    (16, '2026-10-18 10:00:00', 20.000, 120.000, NULL, 3, 2, 4, 3, NULL, 1, NULL),
-    (17, '2026-10-18 10:00:00', 10.500, 48.700, NULL, 1, 8, 3, 3, NULL, 1, NULL),
-    (18, '2026-10-18 10:00:00', 10.500, 70.500, NULL, 3, 8, 4, 3, NULL, 1, NULL),
-    (19, '2026-10-18 10:10:00', 1.250, 58.750, NULL, 1, 12, 1, 2, 7, NULL, NULL),
-    (20, '2026-10-18 10:10:00', 2.000, 46.700, NULL, 1, 8, 1, 2, 7, NULL, NULL),
-    (21, '2026-10-18 10:10:00', 2.000, 78.000, NULL, 1, 2, 1, 2, 7, NULL, NULL),
-    (22, '2026-10-18 11:45:00', 4.000, 96.000, NULL, 3, 4, 1, 8, 8, NULL, NULL),
-    (23, '2026-10-18 11:45:00', 3.000, 97.000, NULL, 3, 6, 1, 8, 8, NULL, NULL),
-    (24, '2026-10-18 11:45:00', 6.000, 94.000, NULL, 3, 5, 1, 8, 8, NULL, NULL),
-    (25, '2026-10-18 12:00:00', 3.000, 18.000, NULL, 3, 1, 5, 9, NULL, NULL, 1),
-    (26, '2026-10-18 13:20:00', 2.000, 95.000, NULL, 1, 4, 1, 2, 9, NULL, NULL),
-    (27, '2026-10-18 13:20:00', 3.000, 91.000, NULL, 1, 3, 1, 2, 9, NULL, NULL),
-    (28, '2026-10-18 14:10:00', 4.000, 96.000, NULL, 3, 7, 1, 8, 10, NULL, NULL),
-    (29, '2026-10-18 14:10:00', 2.000, 16.000, NULL, 3, 1, 1, 8, 10, NULL, NULL),
-    (30, '2026-10-18 14:10:00', 1.200, 69.300, NULL, 3, 8, 1, 8, 10, NULL, NULL),
-    (31, '2026-10-19 08:45:00', 2.000, 86.000, NULL, 1, 5, 1, 2, 11, NULL, NULL),
-    (32, '2026-10-19 08:45:00', 0.500, 58.250, NULL, 1, 12, 1, 2, 11, NULL, NULL),
-    (33, '2026-10-19 09:00:00', 2.500, 44.200, NULL, 1, 8, 5, 3, NULL, NULL, 2),
-    (34, '2026-10-19 09:20:00', 3.000, 97.000, NULL, 2, 3, 1, 5, 12, NULL, NULL),
-    (35, '2026-10-19 09:20:00', 4.000, 96.000, NULL, 2, 1, 1, 5, 12, NULL, NULL),
-    (36, '2026-10-19 10:05:00', 10.000, 90.000, NULL, 1, 10, 1, 2, 13, NULL, NULL),
-    (37, '2026-10-19 10:05:00', 10.000, 89.000, NULL, 1, 7, 1, 2, 13, NULL, NULL),
-    (38, '2026-10-19 10:05:00', 2.000, 98.000, NULL, 1, 6, 1, 2, 13, NULL, NULL),
-    (39, '2026-10-19 11:30:00', 2.500, 56.000, NULL, 2, 9, 1, 5, 14, NULL, NULL),
-    (40, '2026-10-19 11:30:00', 3.000, 57.000, NULL, 2, 8, 1, 5, 14, NULL, NULL);
+INSERT INTO movimiento_stock (id_movimiento, fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_venta, id_traslado, id_merma, id_devolucion, id_lote) VALUES
+    (1, '2026-10-17 09:15:00', 2.000, 98.000, NULL, 1, 1, 1, 2, 1, NULL, NULL, NULL, 1),
+    (2, '2026-10-17 09:15:00', 1.000, 99.000, NULL, 1, 7, 1, 2, 1, NULL, NULL, NULL, NULL),
+    (3, '2026-10-17 09:15:00', 0.800, 59.200, NULL, 1, 8, 1, 2, 1, NULL, NULL, NULL, NULL),
+    (4, '2026-10-17 11:40:00', 6.000, 94.000, NULL, 1, 3, 1, 2, 2, NULL, NULL, NULL, NULL),
+    (5, '2026-10-17 11:40:00', 12.000, 88.000, NULL, 1, 5, 1, 2, 2, NULL, NULL, NULL, NULL),
+    (6, '2026-10-17 11:40:00', 3.000, 97.000, NULL, 1, 4, 1, 2, 2, NULL, NULL, NULL, NULL),
+    (7, '2026-10-17 12:30:00', 1.000, 20.000, NULL, 2, 6, 1, 5, 3, NULL, NULL, NULL, NULL),
+    (8, '2026-10-17 12:30:00', 1.500, 58.500, NULL, 2, 9, 1, 5, 3, NULL, NULL, NULL, NULL),
+    (9, '2026-10-17 14:05:00', 1.000, 99.000, NULL, 1, 2, 1, 2, 4, NULL, NULL, NULL, NULL),
+    (10, '2026-10-17 14:20:00', 1.000, 100.000, NULL, 1, 2, 2, 1, 4, NULL, NULL, NULL, NULL),
+    (11, '2026-10-17 15:00:00', 2.000, 98.000, NULL, 2, 10, 1, 5, 5, NULL, NULL, NULL, NULL),
+    (12, '2026-10-17 15:00:00', 1.000, 99.000, NULL, 2, 11, 1, 5, 5, NULL, NULL, NULL, 7),
+    (13, '2026-10-18 09:30:00', 3.000, 21.000, NULL, 3, 1, 1, 8, 6, NULL, NULL, NULL, 10),
+    (14, '2026-10-18 09:30:00', 2.000, 98.000, NULL, 3, 3, 1, 8, 6, NULL, NULL, NULL, NULL),
+    (15, '2026-10-18 10:00:00', 20.000, 80.000, NULL, 1, 2, 3, 3, NULL, 1, NULL, NULL, NULL),
+    (16, '2026-10-18 10:00:00', 20.000, 120.000, NULL, 3, 2, 4, 3, NULL, 1, NULL, NULL, NULL),
+    (17, '2026-10-18 10:00:00', 10.500, 48.700, NULL, 1, 8, 3, 3, NULL, 1, NULL, NULL, NULL),
+    (18, '2026-10-18 10:00:00', 10.500, 70.500, NULL, 3, 8, 4, 3, NULL, 1, NULL, NULL, NULL),
+    (19, '2026-10-18 10:10:00', 1.250, 58.750, NULL, 1, 12, 1, 2, 7, NULL, NULL, NULL, NULL),
+    (20, '2026-10-18 10:10:00', 2.000, 46.700, NULL, 1, 8, 1, 2, 7, NULL, NULL, NULL, NULL),
+    (21, '2026-10-18 10:10:00', 2.000, 78.000, NULL, 1, 2, 1, 2, 7, NULL, NULL, NULL, NULL),
+    (22, '2026-10-18 11:45:00', 4.000, 96.000, NULL, 3, 4, 1, 8, 8, NULL, NULL, NULL, NULL),
+    (23, '2026-10-18 11:45:00', 3.000, 97.000, NULL, 3, 6, 1, 8, 8, NULL, NULL, NULL, NULL),
+    (24, '2026-10-18 11:45:00', 6.000, 94.000, NULL, 3, 5, 1, 8, 8, NULL, NULL, NULL, NULL),
+    (25, '2026-10-18 12:00:00', 3.000, 18.000, NULL, 3, 1, 5, 9, NULL, NULL, 1, NULL, 9),
+    (26, '2026-10-18 13:20:00', 2.000, 95.000, NULL, 1, 4, 1, 2, 9, NULL, NULL, NULL, NULL),
+    (27, '2026-10-18 13:20:00', 3.000, 91.000, NULL, 1, 3, 1, 2, 9, NULL, NULL, NULL, NULL),
+    (28, '2026-10-18 14:10:00', 4.000, 96.000, NULL, 3, 7, 1, 8, 10, NULL, NULL, NULL, NULL),
+    (29, '2026-10-18 14:10:00', 2.000, 16.000, NULL, 3, 1, 1, 8, 10, NULL, NULL, NULL, 10),
+    (30, '2026-10-18 14:10:00', 1.200, 69.300, NULL, 3, 8, 1, 8, 10, NULL, NULL, NULL, NULL),
+    (31, '2026-10-18 15:00:00', 1.000, 99.000, NULL, 3, 3, 6, 8, NULL, NULL, NULL, 1, NULL),
+    (32, '2026-10-19 08:45:00', 2.000, 86.000, NULL, 1, 5, 1, 2, 11, NULL, NULL, NULL, NULL),
+    (33, '2026-10-19 08:45:00', 0.500, 58.250, NULL, 1, 12, 1, 2, 11, NULL, NULL, NULL, NULL),
+    (34, '2026-10-19 09:00:00', 2.500, 44.200, NULL, 1, 8, 5, 3, NULL, NULL, 2, NULL, NULL),
+    (35, '2026-10-19 09:20:00', 3.000, 97.000, NULL, 2, 3, 1, 5, 12, NULL, NULL, NULL, NULL),
+    (36, '2026-10-19 09:20:00', 4.000, 96.000, NULL, 2, 1, 1, 5, 12, NULL, NULL, NULL, 5),
+    (37, '2026-10-19 10:05:00', 10.000, 90.000, NULL, 1, 10, 1, 2, 13, NULL, NULL, NULL, NULL),
+    (38, '2026-10-19 10:05:00', 10.000, 89.000, NULL, 1, 7, 1, 2, 13, NULL, NULL, NULL, NULL),
+    (39, '2026-10-19 10:05:00', 2.000, 98.000, NULL, 1, 6, 1, 2, 13, NULL, NULL, NULL, NULL),
+    (40, '2026-10-19 11:30:00', 2.500, 56.000, NULL, 2, 9, 1, 5, 14, NULL, NULL, NULL, NULL),
+    (41, '2026-10-19 11:30:00', 3.000, 57.000, NULL, 2, 8, 1, 5, 14, NULL, NULL, NULL, NULL),
+    (42, '2026-10-19 12:00:00', 0.500, 57.500, NULL, 2, 8, 6, 5, NULL, NULL, NULL, 2, NULL);
