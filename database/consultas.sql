@@ -197,13 +197,19 @@ SELECT CONCAT(s.serie, '-', LPAD(v.numero_correlativo, 8, '0')) AS comprobante, 
    D. CAJA
    --------------------------------------------------------------------- */
 
--- 19. Cuadre de cada turno: monto de cierre contra lo esperado (monto inicial + efectivo cobrado).
+-- 19. Cuadre de cada turno: monto de cierre contra lo esperado
+--     (monto inicial + efectivo cobrado + ingresos - retiros, gastos y devoluciones de dinero).
 SELECT ct.id_caja_turno AS turno, t.nombre_tienda AS tienda, c.numero_caja AS caja,
        CONCAT(e.nombres, ' ', e.apellidos) AS cajero, ct.estado, ct.monto_inicial,
-       COALESCE(ef.efectivo_cobrado, 0) AS efectivo_cobrado,
-       ct.monto_inicial + COALESCE(ef.efectivo_cobrado, 0) AS monto_esperado,
+       COALESCE(ef.efectivo_cobrado, 0)  AS efectivo_cobrado,
+       COALESCE(mc.ingresos, 0)          AS ingresos,
+       COALESCE(mc.retiros_y_gastos, 0)  AS retiros_y_gastos,
+       COALESCE(mc.devoluciones, 0)      AS devoluciones,
+       ct.monto_inicial + COALESCE(ef.efectivo_cobrado, 0) + COALESCE(mc.ingresos, 0)
+                        - COALESCE(mc.retiros_y_gastos, 0) - COALESCE(mc.devoluciones, 0) AS monto_esperado,
        ct.monto_cierre,
-       ct.monto_cierre - (ct.monto_inicial + COALESCE(ef.efectivo_cobrado, 0)) AS diferencia
+       ct.monto_cierre - (ct.monto_inicial + COALESCE(ef.efectivo_cobrado, 0) + COALESCE(mc.ingresos, 0)
+                        - COALESCE(mc.retiros_y_gastos, 0) - COALESCE(mc.devoluciones, 0)) AS diferencia
   FROM caja_turno ct
   JOIN caja c     ON c.id_caja = ct.id_caja
   JOIN tienda t   ON t.id_tienda = c.id_tienda
@@ -212,26 +218,78 @@ SELECT ct.id_caja_turno AS turno, t.nombre_tienda AS tienda, c.numero_caja AS ca
                FROM venta v
                JOIN pago_venta pv ON pv.id_venta = v.id_venta AND pv.estado = 'VALIDO' AND pv.id_metodo_pago = 1
               GROUP BY v.id_caja_turno) ef ON ef.id_caja_turno = ct.id_caja_turno
+  LEFT JOIN (SELECT id_caja_turno,
+                    SUM(CASE WHEN tipo = 'INGRESO' THEN monto ELSE 0 END) AS ingresos,
+                    SUM(CASE WHEN tipo IN ('RETIRO','GASTO') THEN monto ELSE 0 END) AS retiros_y_gastos,
+                    SUM(CASE WHEN tipo = 'DEVOLUCION' THEN monto ELSE 0 END) AS devoluciones
+               FROM movimiento_caja GROUP BY id_caja_turno) mc ON mc.id_caja_turno = ct.id_caja_turno
  ORDER BY ct.id_caja_turno;
 
+-- 20. Que ingresos, retiros, gastos y devoluciones de dinero hubo en cada turno de caja.
+SELECT mc.id_movimiento_caja, mc.fecha_hora, t.nombre_tienda AS tienda, ct.id_caja_turno AS turno,
+       CONCAT(e.nombres, ' ', e.apellidos) AS cajero, mc.tipo, mc.monto, mc.motivo
+  FROM movimiento_caja mc
+  JOIN caja_turno ct ON ct.id_caja_turno = mc.id_caja_turno
+  JOIN caja c        ON c.id_caja = ct.id_caja
+  JOIN tienda t      ON t.id_tienda = c.id_tienda
+  JOIN empleado e    ON e.id_empleado = ct.id_empleado
+ ORDER BY mc.fecha_hora;
+
 /* ---------------------------------------------------------------------
-   E. CONTROL DE REGLAS DE NEGOCIO
+   E. DEVOLUCIONES Y LOTES
+   --------------------------------------------------------------------- */
+
+-- 21. Que productos se devolvieron, de que comprobante, por que motivo y cuanto dinero se devolvio.
+SELECT dv.id_devolucion, dv.fecha_hora,
+       CONCAT(s.serie, '-', LPAD(v.numero_correlativo, 8, '0')) AS comprobante,
+       p.nombre_producto AS producto, dd.cantidad, dd.importe, dv.motivo, t.nombre_tienda AS tienda
+  FROM devolucion_venta dv
+  JOIN venta v             ON v.id_venta = dv.id_venta
+  JOIN serie_comprobante s ON s.id_serie = v.id_serie
+  JOIN detalle_devolucion dd ON dd.id_devolucion = dv.id_devolucion
+  JOIN detalle_venta d     ON d.id_detalle_venta = dd.id_detalle_venta
+  JOIN producto p          ON p.id_producto = d.id_producto
+  JOIN tienda t            ON t.id_tienda = s.id_tienda
+ ORDER BY dv.fecha_hora;
+
+-- 22. Ventas netas por dia: lo vendido (comprobantes emitidos) menos lo devuelto.
+SELECT d.dia, d.vendido, COALESCE(r.devuelto, 0) AS devuelto, d.vendido - COALESCE(r.devuelto, 0) AS venta_neta
+  FROM (SELECT DATE(fecha_hora) AS dia, SUM(total) AS vendido
+          FROM venta WHERE estado = 'EMITIDA' GROUP BY DATE(fecha_hora)) d
+  LEFT JOIN (SELECT DATE(fecha_hora) AS dia, SUM(monto_devuelto) AS devuelto
+               FROM devolucion_venta GROUP BY DATE(fecha_hora)) r ON r.dia = d.dia
+ ORDER BY d.dia;
+
+-- 23. Que lotes hay en cada tienda, cuanto queda y cuando vencen.
+--     Fecha de referencia: 2026-10-19 (el dia de los datos de ejemplo); para usar la fecha de hoy, cambiala por CURDATE().
+SELECT t.nombre_tienda AS tienda, p.nombre_producto AS producto, l.codigo_lote, l.fecha_vencimiento,
+       DATEDIFF(l.fecha_vencimiento, '2026-10-19') AS dias_para_vencer, l.cantidad_actual,
+       CASE WHEN l.fecha_vencimiento < '2026-10-19' THEN 'VENCIDO'
+            WHEN DATEDIFF(l.fecha_vencimiento, '2026-10-19') <= 30 THEN 'POR VENCER'
+            ELSE 'VIGENTE' END AS situacion
+  FROM lote_producto l
+  JOIN tienda t   ON t.id_tienda = l.id_tienda
+  JOIN producto p ON p.id_producto = l.id_producto
+ ORDER BY l.fecha_vencimiento, t.nombre_tienda;
+
+/* ---------------------------------------------------------------------
+   F. CONTROL DE REGLAS DE NEGOCIO
    Cada consulta debe devolver 0 FILAS: si devuelve algo, hay un dato que rompe la regla.
    --------------------------------------------------------------------- */
 
--- 20. Ventas emitidas cuyos pagos validos no suman el total.
+-- 24. Ventas emitidas cuyos pagos validos no suman el total.
 SELECT v.id_venta, v.total
   FROM venta v
  WHERE v.estado = 'EMITIDA'
    AND ROUND(v.total - COALESCE((SELECT SUM(pv.monto_pagado) FROM pago_venta pv
                                   WHERE pv.id_venta = v.id_venta AND pv.estado = 'VALIDO'), 0), 2) <> 0;
 
--- 21. Ventas cuyo detalle no suma el total.
+-- 25. Ventas cuyo detalle no suma el total.
 SELECT v.id_venta, v.total
   FROM venta v
  WHERE ROUND(v.total - (SELECT SUM(d.importe) FROM detalle_venta d WHERE d.id_venta = v.id_venta), 2) <> 0;
 
--- 22. Facturas cuyo cliente no tiene RUC.
+-- 26. Facturas cuyo cliente no tiene RUC.
 SELECT v.id_venta
   FROM venta v
   JOIN serie_comprobante s ON s.id_serie = v.id_serie
@@ -239,7 +297,7 @@ SELECT v.id_venta
   LEFT JOIN cliente cl     ON cl.id_cliente = v.id_cliente
  WHERE tc.letra_serie = 'F' AND cl.ruc IS NULL;
 
--- 23. Series con huecos o correlativos repetidos, o cuyo ultimo_numero no coincide con la ultima venta.
+-- 27. Series con huecos o correlativos repetidos, o cuyo ultimo_numero no coincide con la ultima venta.
 SELECT s.id_serie, s.serie
   FROM serie_comprobante s
   LEFT JOIN venta v ON v.id_serie = s.id_serie
@@ -247,14 +305,14 @@ SELECT s.id_serie, s.serie
 HAVING COUNT(v.id_venta) <> s.ultimo_numero
     OR COALESCE(MAX(v.numero_correlativo), 0) <> s.ultimo_numero;
 
--- 24. Stock que no coincide con el ultimo saldo del kardex.
+-- 28. Stock que no coincide con el ultimo saldo del kardex.
 SELECT s.id_tienda, s.id_producto, s.cantidad_actual, m.stock_nuevo
   FROM stock s
   JOIN movimiento_stock m ON m.id_movimiento = (SELECT MAX(x.id_movimiento) FROM movimiento_stock x
                                                  WHERE x.id_tienda = s.id_tienda AND x.id_producto = s.id_producto)
  WHERE ROUND(s.cantidad_actual - m.stock_nuevo, 3) <> 0;
 
--- 25. Ventas hechas por un empleado que no es cajero, o en una tienda distinta a la de su caja.
+-- 29. Ventas hechas por un empleado que no es cajero, o en una tienda distinta a la de su caja.
 SELECT v.id_venta
   FROM venta v
   JOIN serie_comprobante s ON s.id_serie = v.id_serie
@@ -263,14 +321,14 @@ SELECT v.id_venta
   JOIN empleado e          ON e.id_empleado = ct.id_empleado
  WHERE e.id_rol <> 2 OR c.id_tienda <> s.id_tienda OR e.id_tienda <> c.id_tienda;
 
--- 26. Ventas fuera del horario de su turno de caja.
+-- 30. Ventas fuera del horario de su turno de caja.
 SELECT v.id_venta
   FROM venta v
   JOIN caja_turno ct ON ct.id_caja_turno = v.id_caja_turno
  WHERE v.fecha_hora < ct.fecha_hora_apertura
     OR (ct.fecha_hora_cierre IS NOT NULL AND v.fecha_hora > ct.fecha_hora_cierre);
 
--- 27. Anulaciones incoherentes: venta ANULADA sin anulacion (o al reves), o anulada por alguien que no es administrador de su tienda.
+-- 31. Anulaciones incoherentes: venta ANULADA sin anulacion (o al reves), o anulada por alguien que no es administrador de su tienda.
 SELECT v.id_venta
   FROM venta v
   LEFT JOIN anulacion_venta a ON a.id_venta = v.id_venta
@@ -283,7 +341,7 @@ SELECT a.id_venta
   JOIN empleado e          ON e.id_empleado = a.id_empleado
  WHERE e.id_rol <> 1 OR e.id_tienda <> s.id_tienda;
 
--- 28. Pagos sin el detalle de su metodo (efectivo, tarjeta o Sip), o con mas de uno.
+-- 32. Pagos sin el detalle de su metodo (efectivo, tarjeta o Sip), o con mas de uno.
 SELECT pv.id_pago
   FROM pago_venta pv
  WHERE (SELECT COUNT(*) FROM efectivo e WHERE e.id_pago = pv.id_pago)
@@ -292,3 +350,72 @@ SELECT pv.id_pago
     OR (pv.id_metodo_pago = 1 AND NOT EXISTS (SELECT 1 FROM efectivo e WHERE e.id_pago = pv.id_pago))
     OR (pv.id_metodo_pago = 2 AND NOT EXISTS (SELECT 1 FROM tarjeta t WHERE t.id_pago = pv.id_pago))
     OR (pv.id_metodo_pago = 3 AND NOT EXISTS (SELECT 1 FROM billetera_digital_sip b WHERE b.id_pago = pv.id_pago));
+
+-- 33. Productos con lote cuyo stock no es la suma de sus lotes.
+SELECT s.id_tienda, s.id_producto, s.cantidad_actual, SUM(l.cantidad_actual) AS suma_lotes
+  FROM stock s
+  JOIN lote_producto l ON l.id_tienda = s.id_tienda AND l.id_producto = s.id_producto
+ GROUP BY s.id_tienda, s.id_producto, s.cantidad_actual
+HAVING ROUND(s.cantidad_actual - SUM(l.cantidad_actual), 3) <> 0;
+
+-- 34. Movimientos de productos con lote que no indican lote, o que indican un lote de otro producto o tienda.
+SELECT m.id_movimiento
+  FROM movimiento_stock m
+  LEFT JOIN lote_producto l ON l.id_lote = m.id_lote
+ WHERE (m.id_lote IS NULL AND EXISTS (SELECT 1 FROM lote_producto x
+                                       WHERE x.id_tienda = m.id_tienda AND x.id_producto = m.id_producto))
+    OR (m.id_lote IS NOT NULL AND (l.id_tienda <> m.id_tienda OR l.id_producto <> m.id_producto));
+
+-- 35. Ventas que sacaron stock de un lote ya vencido.
+SELECT m.id_movimiento, m.id_venta, l.codigo_lote
+  FROM movimiento_stock m
+  JOIN lote_producto l ON l.id_lote = m.id_lote
+ WHERE m.id_tipo_movimiento = 1 AND DATE(m.fecha_hora) > l.fecha_vencimiento;
+
+-- 36. Devoluciones incoherentes: venta no emitida, monto distinto de su detalle, importe mal calculado
+--     o mas cantidad devuelta que la vendida.
+SELECT dv.id_devolucion
+  FROM devolucion_venta dv
+  JOIN venta v ON v.id_venta = dv.id_venta
+ WHERE v.estado <> 'EMITIDA'
+    OR ROUND(dv.monto_devuelto - (SELECT SUM(dd.importe) FROM detalle_devolucion dd
+                                   WHERE dd.id_devolucion = dv.id_devolucion), 2) <> 0
+    OR EXISTS (SELECT 1
+                 FROM detalle_devolucion dd
+                 JOIN detalle_venta d ON d.id_detalle_venta = dd.id_detalle_venta
+                WHERE dd.id_devolucion = dv.id_devolucion
+                  AND (d.id_venta <> dv.id_venta
+                       OR dd.importe <> ROUND(dd.cantidad * d.precio_unitario, 2)
+                       OR (SELECT SUM(x.cantidad) FROM detalle_devolucion x
+                            WHERE x.id_detalle_venta = dd.id_detalle_venta) > d.cantidad));
+
+-- 37. Movimientos de caja fuera del horario de su turno, o devoluciones de dinero de una venta de otra tienda.
+SELECT mc.id_movimiento_caja
+  FROM movimiento_caja mc
+  JOIN caja_turno ct ON ct.id_caja_turno = mc.id_caja_turno
+  JOIN caja c        ON c.id_caja = ct.id_caja
+  LEFT JOIN venta v             ON v.id_venta = mc.id_venta
+  LEFT JOIN serie_comprobante s ON s.id_serie = v.id_serie
+ WHERE mc.fecha_hora < ct.fecha_hora_apertura
+    OR (ct.fecha_hora_cierre IS NOT NULL AND mc.fecha_hora > ct.fecha_hora_cierre)
+    OR (mc.id_venta IS NOT NULL AND s.id_tienda <> c.id_tienda);
+
+-- 38. Turnos cerrados cuyo monto de cierre no es: inicial + efectivo cobrado + ingresos - retiros, gastos y devoluciones.
+SELECT ct.id_caja_turno, ct.monto_cierre
+  FROM caja_turno ct
+ WHERE ct.estado = 'CERRADO'
+   AND ROUND(ct.monto_cierre - (ct.monto_inicial
+        + COALESCE((SELECT SUM(pv.monto_pagado)
+                      FROM venta v
+                      JOIN pago_venta pv ON pv.id_venta = v.id_venta AND pv.estado = 'VALIDO' AND pv.id_metodo_pago = 1
+                     WHERE v.id_caja_turno = ct.id_caja_turno), 0)
+        + COALESCE((SELECT SUM(CASE WHEN mc.tipo = 'INGRESO' THEN mc.monto ELSE -mc.monto END)
+                      FROM movimiento_caja mc WHERE mc.id_caja_turno = ct.id_caja_turno), 0)), 2) <> 0;
+
+-- 39. Ventas cuyo dinero devuelto de caja (movimientos DEVOLUCION) no es igual a lo registrado en sus devoluciones.
+SELECT v.id_venta
+  FROM venta v
+ WHERE ROUND(COALESCE((SELECT SUM(mc.monto) FROM movimiento_caja mc
+                        WHERE mc.id_venta = v.id_venta AND mc.tipo = 'DEVOLUCION'), 0)
+           - COALESCE((SELECT SUM(dv.monto_devuelto) FROM devolucion_venta dv
+                        WHERE dv.id_venta = v.id_venta), 0), 2) <> 0;
