@@ -1,5 +1,6 @@
 <?php
-// M: login por DNI (no hay usuario ni contraseña). Devuelve el objeto según el rol.
+// M: login con DNI y contraseña. La contraseña se guarda como hash (bcrypt) y se compara con password_verify.
+// Devuelve el objeto según el rol.
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Cajero.php';
 require_once __DIR__ . '/Almacenero.php';
@@ -7,6 +8,16 @@ require_once __DIR__ . '/Administrador.php';
 
 class EmpleadoRepository
 {
+    public function autenticar(string $dni, string $clave): ?Empleado
+    {
+        $st = Database::conectar()->prepare("SELECT contrasena FROM empleado WHERE dni = ? AND estado = 'ACTIVO'");
+        $st->execute([$dni]);
+        $hash = $st->fetchColumn();
+        // mismo resultado si el DNI no existe o la clave es incorrecta (no se revela cuál falló)
+        if ($hash === false || !password_verify($clave, $hash)) return null;
+        return $this->buscarPorDni($dni);
+    }
+
     public function buscarPorDni(string $dni): ?Empleado
     {
         $st = Database::conectar()->prepare(

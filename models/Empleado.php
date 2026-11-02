@@ -6,7 +6,7 @@ abstract class Empleado
         public int $idEmpleado,
         public string $nombres,
         public string $apellidos,
-        public string $dni,        // CHAR(8): es el usuario de ingreso
+        public string $dni,        // CHAR(8): es el usuario de ingreso (la contraseña nunca se carga en el objeto)
         public int $idTienda
     ) {}
 
