@@ -120,5 +120,6 @@
 </div>
 <div class="toast" id="toast">Acción de demostración</div>
 <script src="js/panel-administrador.js"></script>
+<script src="js/panel-datos.js"></script>
 </body>
 </html>
