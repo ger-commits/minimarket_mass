@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mass | Panel de administración</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
+:root{--yellow:#ffd21f;--yellow2:#f4bd00;--black:#171717;--ink:#242424;--muted:#777;--bg:#f5f5f2;--line:#e9e9e4;--white:#fff;--green:#16865b;--red:#d94b43;--blue:#4878d0;--shadow:0 8px 28px rgba(20,20,20,.055)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px 'DM Sans',sans-serif}button,input,select{font:inherit}button{cursor:pointer}
+.app{display:flex;min-height:100vh}.sidebar{width:254px;background:var(--black);color:#fff;padding:24px 16px;display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;z-index:5}
+.brand{display:flex;align-items:center;gap:11px;padding:0 10px 28px;border-bottom:1px solid #343434}.brand-mark{width:42px;height:42px;background:var(--yellow);border-radius:12px;display:grid;place-items:center;color:#171717;font-weight:900;font-size:22px}.brand strong{font:800 21px Manrope;letter-spacing:-1px}.brand small{display:block;color:#aaa;font-size:10px;letter-spacing:1.8px;margin-top:1px}
+.store-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1.5px;padding:23px 12px 10px}.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#bdbdbd;text-align:left;padding:11px 12px;border-radius:9px;display:flex;align-items:center;gap:12px;transition:.2s;font-weight:600}.nav button:hover{background:#2a2a2a;color:#fff}.nav button.active{background:var(--yellow);color:#191919}.nav .ico{width:20px;text-align:center;font-size:17px}.nav .count{margin-left:auto;background:#393939;color:#eee;padding:2px 7px;border-radius:20px;font-size:10px}.nav button.active .count{background:#171717;color:var(--yellow)}
+.sidebar-bottom{margin-top:auto}.user-card{border-top:1px solid #383838;padding:17px 7px 0;display:flex;align-items:center;gap:10px}.avatar{width:35px;height:35px;border-radius:50%;background:#3b3b3b;color:var(--yellow);display:grid;place-items:center;font-weight:800}.user-card b{font-size:12px}.user-card small{display:block;color:#999;font-size:11px;margin-top:3px}
+.main{margin-left:254px;width:calc(100% - 254px);padding:0 34px 40px}.topbar{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);gap:20px}.crumb{color:#999;font-size:12px}.crumb b{color:#333}.top-actions{display:flex;align-items:center;gap:12px}.search{position:relative}.search input{width:220px;padding:10px 13px 10px 36px;border:1px solid #e3e3df;border-radius:9px;background:#fff;outline:none}.search:before{content:'⌕';position:absolute;left:13px;top:5px;font-size:23px;color:#999}.icon-btn{width:38px;height:38px;border:1px solid var(--line);background:#fff;border-radius:9px;position:relative}.dot{position:absolute;width:7px;height:7px;border-radius:50%;background:#e04c42;right:8px;top:8px;border:1px solid #fff}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin:28px 0 22px;gap:20px}.eyebrow{font-size:10px;letter-spacing:1.8px;color:#9b8500;font-weight:800;text-transform:uppercase}.page-head h1{font:800 27px Manrope;margin:5px 0 4px;letter-spacing:-.8px}.page-head p{color:#858585;margin:0}.head-actions{display:flex;gap:9px}.btn{border:1px solid #deded8;background:#fff;border-radius:8px;padding:10px 14px;font-weight:700;color:#333}.btn.primary{background:var(--yellow);border-color:var(--yellow);color:#171717}.btn:hover{filter:brightness(.97);transform:translateY(-1px)}
+.filters{display:flex;align-items:center;gap:9px;margin-bottom:18px}.filter{border:1px solid #e4e4de;background:#fff;padding:8px 12px;border-radius:8px;color:#555}.period{margin-left:auto;color:#888;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.stat{background:#fff;border:1px solid #ecece7;border-radius:13px;padding:17px 18px;box-shadow:var(--shadow);min-height:126px}.stat-top{display:flex;align-items:center;justify-content:space-between;color:#777;font-size:12px;font-weight:600}.stat-icon{width:32px;height:32px;border-radius:9px;background:#fff6ce;display:grid;place-items:center;font-size:16px}.stat-value{font:800 25px Manrope;letter-spacing:-.7px;margin:12px 0 5px}.stat-foot{font-size:11px;color:#999}.up{color:var(--green);font-weight:700}.down{color:var(--red);font-weight:700}
+.grid-main{display:grid;grid-template-columns:1.55fr 1fr;gap:15px;margin-top:16px}.panel{background:#fff;border:1px solid #ecece7;border-radius:13px;padding:18px;box-shadow:var(--shadow);min-width:0}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px}.panel h3{font:800 14px Manrope;margin:0}.sub{font-size:11px;color:#999;margin-top:4px}.select{border:1px solid #e7e7e2;border-radius:7px;padding:7px 9px;background:#fff;color:#666;font-size:11px}
+.chart{height:210px;display:flex;gap:12px;align-items:flex-end;padding:8px 8px 0;border-bottom:1px solid #eee;position:relative}.chart:before,.chart:after{content:'';position:absolute;left:0;right:0;border-top:1px dashed #eee}.chart:before{top:32%}.chart:after{top:65%}.bar-group{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;gap:4px;position:relative;z-index:1}.bar{width:35%;max-width:23px;border-radius:5px 5px 0 0;background:#ffe58a;min-height:8px}.bar.dark{background:#252525}.bar-group label{position:absolute;bottom:-22px;color:#aaa;font-size:10px}.chart-legend{display:flex;gap:15px;margin-top:30px;color:#888;font-size:10px}.legend-dot{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px;background:#252525}.legend-dot.yellow{background:#ffe58a}
+.store-list{display:grid;gap:15px}.store-row{display:grid;grid-template-columns:1fr auto;gap:7px}.store-row b{font-size:12px}.store-row small{color:#999;font-size:10px}.store-row strong{font-size:12px}.track{grid-column:1/-1;height:7px;background:#f0f0eb;border-radius:10px;overflow:hidden}.track i{height:100%;display:block;background:var(--yellow);border-radius:10px}
+.lower{display:grid;grid-template-columns:1.45fr 1fr;gap:15px;margin-top:16px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}th{text-align:left;color:#999;font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:700;padding:10px 9px;border-bottom:1px solid #eee}td{padding:12px 9px;border-bottom:1px solid #f0f0ed;font-size:11px}tbody tr:last-child td{border:0}.product{display:flex;align-items:center;gap:9px;font-weight:700}.prod-icon{width:31px;height:31px;border-radius:8px;background:#fff6d7;display:grid;place-items:center;font-size:16px}.pill{padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700}.pill.ok{background:#e6f5ed;color:#16865b}.pill.warn{background:#fff2d4;color:#a87300}.pill.bad{background:#fde9e7;color:#c33d35}
+.alert-list{display:grid;gap:0}.alert{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid #eee}.alert:last-child{border:0}.alert-ico{width:31px;height:31px;flex:none;border-radius:9px;background:#fff1d0;display:grid;place-items:center}.alert b{font-size:11px;display:block;margin:1px 0 4px}.alert small{color:#999;font-size:10px}.alert a{display:inline-block;margin-top:5px;color:#8c7200;font-weight:700;font-size:10px;text-decoration:none}
+.section{display:none}.section.active{display:block}.placeholder{background:#fff;border:1px solid #ecece7;border-radius:13px;padding:40px;text-align:center;color:#888}.placeholder strong{display:block;color:#222;font:800 18px Manrope;margin-bottom:8px}
+.toast{position:fixed;right:25px;bottom:25px;background:#1d1d1d;color:#fff;padding:13px 17px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transform:translateY(10px);transition:.25s;z-index:20}.toast.show{opacity:1;transform:none}
+.mobile-menu{display:none}
+@media(max-width:1100px){.sidebar{width:220px}.main{margin-left:220px;width:calc(100% - 220px);padding:0 22px}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.sidebar{transform:translateX(-100%);transition:.25s;width:255px}.sidebar.open{transform:none}.main{margin:0;width:100%;padding:0 15px 30px}.mobile-menu{display:inline-grid}.topbar{height:65px}.search input{width:155px}.page-head{align-items:flex-start;flex-direction:column}.grid-main,.lower{grid-template-columns:1fr}.stats{gap:9px}.stat{padding:13px;min-height:116px}.stat-value{font-size:21px}.head-actions{width:100%}.head-actions button{flex:1}.filters{flex-wrap:wrap}.period{width:100%;margin:0}.chart{height:180px}}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,15,15,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+.modal-backdrop.open{display:flex}.modal{background:#fff;width:min(520px,100%);border-radius:16px;box-shadow:0 24px 80px #0003;overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:19px 22px;border-bottom:1px solid #eee}
+.modal-head h2{font:800 18px Manrope;margin:0}.modal-close{border:0;background:#f3f3ef;border-radius:8px;width:34px;height:34px;font-size:20px}
+.modal-body{padding:20px 22px;display:grid;gap:13px}.field{display:grid;gap:6px}.field label{font-size:11px;font-weight:800;color:#666}.field input,.field select,.field textarea{width:100%;border:1px solid #deded8;border-radius:8px;padding:11px;background:#fff;outline:none}.field input:focus,.field select:focus,.field textarea:focus{border-color:#d3a900;box-shadow:0 0 0 3px #ffd21f33}
+.modal-foot{padding:15px 22px;background:#fafaf8;display:flex;justify-content:flex-end;gap:9px}
+.table-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.table-tools input{border:1px solid #e4e4de;border-radius:8px;padding:9px 11px;min-width:190px}.action-link{border:0;background:transparent;color:#8c7200;font-weight:800;padding:5px}
+.empty-state{text-align:center;color:#888;padding:22px}
+@media(max-width:520px){.modal-foot{flex-wrap:wrap}.modal-foot button{flex:1}.table-tools input{width:100%}}
+</style>
+
+<style>
+:root{--yellow:#ffd21f;--yellow2:#f2b900;--black:#151515;--bg:#f4f4f1;--shadow:0 12px 32px rgba(30,26,10,.07)}
+body{background:radial-gradient(ellipse at 90% 0%,#fff9db 0,transparent 28%),#f4f4f1}
+.sidebar{background:linear-gradient(165deg,#191919 0%,#101010 70%,#242014 100%);box-shadow:8px 0 30px #00000012}
+.brand-mark{border-radius:14px;box-shadow:0 5px 18px #ffd21f35;transform:rotate(-3deg)}
+.brand strong{letter-spacing:-1.4px;font-size:23px}
+.nav button{padding:12px 13px;border-radius:11px;position:relative}
+.nav button.active{box-shadow:0 7px 18px #ffd21f25;font-weight:800}
+.nav button.active:before{content:"";position:absolute;left:-16px;top:9px;bottom:9px;width:4px;border-radius:0 5px 5px 0;background:var(--yellow)}
+.main{padding-left:38px;padding-right:38px}
+.topbar{border-bottom-color:#e8e5d9}
+.search input{border-radius:12px;box-shadow:0 3px 12px #00000005;transition:.2s}
+.search input:focus{border-color:#e3b900;box-shadow:0 0 0 4px #ffd21f35}
+.icon-btn{border-radius:12px;transition:.2s}
+.icon-btn:hover{background:#fff7d5;border-color:#f2d65f;transform:translateY(-2px)}
+.page-head{margin-top:30px}
+.page-head h1{font-size:30px;letter-spacing:-1.2px}
+.eyebrow{color:#9b7900;letter-spacing:2px}
+.btn{border-radius:10px;transition:transform .18s,box-shadow .18s,background .18s}
+.btn.primary{box-shadow:0 5px 14px #ffd21f3d}
+.btn.primary:hover{box-shadow:0 8px 20px #ffd21f66;filter:saturate(1.08)}
+.stat,.panel{border-radius:17px;box-shadow:0 7px 25px #211c0809;transition:transform .2s,box-shadow .2s}
+.stat:hover,.panel:hover{transform:translateY(-3px);box-shadow:0 14px 32px #211c0812}
+.stat{position:relative;overflow:hidden;padding:19px 20px}
+.stat:after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-38px;bottom:-52px;background:#ffd21f13}
+.stat-icon{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#fff6c9,#ffeb8a);color:#705800}
+.stat-value{font-size:28px}
+.panel{padding:21px}
+.panel h3{font-size:15px}
+.chart{height:224px}
+.bar{transition:filter .2s,transform .2s;cursor:crosshair}
+.bar:hover{filter:brightness(.92);transform:scaleX(1.12);transform-origin:bottom}
+.track{height:9px;background:#f0eee5}
+.track i{background:linear-gradient(90deg,#f5c400,#ffe16a)}
+td{padding-top:14px;padding-bottom:14px}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#fffbee}
+th{background:#fffdf6}
+.pill{letter-spacing:.1px}
+.welcome-banner{min-height:218px;margin:26px 0 17px;border-radius:22px;overflow:hidden;position:relative;padding:28px 32px;background:linear-gradient(112deg,#171717 0%,#242117 57%,#3b3211 100%);color:white;display:flex;align-items:center;box-shadow:0 16px 35px #20190020}
+.welcome-banner:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 52%,#ffd21f13 100%);pointer-events:none}
+.welcome-copy{position:relative;z-index:2;max-width:560px}
+.welcome-tag{display:inline-flex;align-items:center;gap:8px;color:#ffdf58;font-size:9px;font-weight:800;letter-spacing:2px}
+.welcome-tag i{width:7px;height:7px;border-radius:50%;background:#ffd21f;box-shadow:0 0 0 5px #ffd21f20}
+.welcome-copy h2{font:800 clamp(23px,3vw,32px) Manrope;margin:15px 0 7px;letter-spacing:-1px}
+.welcome-copy h2 span{font-size:23px}
+.welcome-copy p{color:#d0cfc8;margin:0;font-size:13px}
+.welcome-meta{display:flex;gap:10px;align-items:center;margin-top:22px;color:#bcb9aa;font-size:10px;font-weight:600}
+.welcome-meta span:first-child{color:#ffe16a}
+.welcome-art{position:absolute;right:13%;top:50%;transform:translateY(-50%);width:210px;height:190px;z-index:1}
+.art-circle{position:absolute;border:1px solid #ffd21f35;border-radius:50%}
+.circle-one{width:180px;height:180px;top:5px;left:15px}
+.circle-two{width:135px;height:135px;top:28px;left:38px;border-style:dashed}
+.art-bag{position:absolute;top:42px;left:65px;width:88px;height:100px;background:linear-gradient(145deg,#ffe36a,#ffc400);clip-path:polygon(0 12%,100% 12%,91% 100%,9% 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:#171717;font:900 31px Manrope;filter:drop-shadow(0 10px 10px #0005);transform:rotate(-7deg)}
+.art-bag span{font-size:13px;letter-spacing:2px;margin-top:-7px}
+.art-spark{position:absolute;color:#ffdf58;font-size:24px}.spark-one{top:14px;right:12px}.spark-two{bottom:13px;left:15px;font-size:18px}
+.banner-stamp{position:absolute;right:27px;bottom:21px;color:#ffdc4c;font:900 12px Manrope;letter-spacing:2px;text-align:right;opacity:.8}
+.banner-stamp small{font:700 7px 'DM Sans';letter-spacing:1.6px;color:#b9ae7b}
+.quick-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:0 0 20px}
+.quick-strip button{border:1px solid #ece8d9;background:#fff;border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:11px;text-align:left;min-width:0;transition:.2s;box-shadow:0 4px 14px #211c0805}
+.quick-strip button:hover{border-color:#e9ca43;transform:translateY(-3px);box-shadow:0 10px 22px #211c0810;background:#fffdf4}
+.quick-ico{width:38px;height:38px;flex:none;border-radius:12px;background:#fff4c2;color:#715900;display:grid;place-items:center;font-size:18px}
+.quick-strip b{display:block;font-size:11px;color:#242424}.quick-strip small{display:block;color:#999;font-size:9px;margin-top:3px}
+.quick-strip em{margin-left:auto;color:#b49a22;font-style:normal;font-size:15px}
+.filters{background:#fff;border:1px solid #ece8dc;padding:10px 12px;border-radius:13px;box-shadow:0 4px 14px #211c0805}
+.filter{border-radius:9px;background:#faf9f5}
+.toast{border:1px solid #3b3b3b;border-left:4px solid var(--yellow);border-radius:12px}
+.modal{border-radius:19px}
+.modal-head{background:#fffdf4}
+@media(max-width:900px){.welcome-art{right:4%;opacity:.55}.banner-stamp{display:none}}
+@media(max-width:760px){.main{padding-left:15px;padding-right:15px}.welcome-banner{padding:23px 20px;min-height:195px}.welcome-art{right:-52px;opacity:.28}.welcome-copy{max-width:90%}.quick-strip{grid-template-columns:repeat(2,1fr)}.quick-strip button{padding:11px}.banner-stamp{display:none}}
+@media(max-width:430px){.quick-strip{gap:7px}.quick-strip button{gap:7px;padding:9px}.quick-ico{width:32px;height:32px}.quick-strip small{font-size:8px}.welcome-meta{flex-wrap:wrap}}
+</style>
+
+</head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><div class="brand-mark">M</div><div><strong>MASS</strong><small>ADMINISTRACIÓN</small></div></div>
+  <div class="store-label">Panel principal</div>
+  <nav class="nav" id="nav">
+    <button class="active" data-page="inicio"><span class="ico">▦</span>Resumen general</button>
+    <button data-page="ventas"><span class="ico">▤</span>Ventas</button>
+    <button data-page="inventario"><span class="ico">▣</span>Inventario <span class="count">8</span></button>
+    <button data-page="productos"><span class="ico">▧</span>Productos</button>
+    <button data-page="empleados"><span class="ico">♙</span>Personal y turnos</button>
+    <button data-page="tiendas"><span class="ico">⌂</span>Tiendas</button>
+    <button data-page="traslados"><span class="ico">⇄</span>Traslados</button>
+    <button data-page="mermas"><span class="ico">⌁</span>Mermas</button>
+    <button data-page="solicitudes"><span class="ico">◷</span>Anulaciones <span class="count">3</span></button>
+    <button data-page="reportes"><span class="ico">▥</span>Reportes</button>
+  </nav>
+  <div class="sidebar-bottom"><div class="user-card"><div class="avatar">AD</div><div><b>Administrador</b><small>Administrador de tienda</small></div></div></div>
+</aside>
+<main class="main">
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:12px"><button class="icon-btn mobile-menu" id="menu">☰</button><div class="crumb">Mass / <b id="crumb">Resumen general</b></div></div>
+  <div class="top-actions"><div class="search"><input id="search" placeholder="Buscar en el panel..."></div><button class="icon-btn" id="bell" title="Notificaciones">♧<i class="dot"></i></button><div class="avatar" style="background:#222;color:#ffd21f">AD</div></div>
+</header>
+<section class="section active" id="inicio">
+  <div class="page-head"><div><div class="eyebrow">Panel de control · Tienda Mass</div><h1>Resumen general</h1><p>Visualiza el movimiento de tus tiendas y la operación del negocio.</p></div><div class="head-actions"><button class="btn" id="export">↓ Exportar</button><button class="btn primary" id="new">＋ Nueva acción</button></div></div>
+
+  <div class="welcome-banner">
+    <div class="welcome-copy">
+      <span class="welcome-tag"><i></i> CENTRO DE OPERACIONES MASS</span>
+      <h2>¡Hola, administrador! <span>👋</span></h2>
+      <p>Todo lo que sucede en tus tiendas, en un solo lugar.</p>
+      <div class="welcome-meta"><span>◷ Jornada en curso</span><span>•</span><span>3 tiendas conectadas</span></div>
+    </div>
+    <div class="welcome-art" aria-hidden="true">
+      <div class="art-circle circle-one"></div><div class="art-circle circle-two"></div>
+      <div class="art-bag">M<span>ASS</span></div><div class="art-spark spark-one">✦</div><div class="art-spark spark-two">✳</div>
+    </div>
+    <div class="banner-stamp">MASS<br><small>SIEMPRE CERCA</small></div>
+  </div>
+  <div class="quick-strip">
+    <button data-goto="ventas"><span class="quick-ico">▤</span><span><b>Ver ventas</b><small>Actividad comercial</small></span><em>↗</em></button>
+    <button data-goto="inventario"><span class="quick-ico">▣</span><span><b>Revisar stock</b><small>Existencias actuales</small></span><em>↗</em></button>
+    <button data-goto="empleados"><span class="quick-ico">♙</span><span><b>Personal</b><small>Roles y turnos</small></span><em>↗</em></button>
+    <button data-goto="reportes"><span class="quick-ico">▥</span><span><b>Reportes</b><small>Analítica del negocio</small></span><em>↗</em></button>
+  </div>
+  <div class="filters"><select class="filter" id="storeFilter"><option>Todas las tiendas</option><option>Cayma</option><option>Cerro Colorado</option><option>Yanahuara</option></select><select class="filter"><option>Hoy</option><option>Últimos 7 días</option><option>Este mes</option></select><span class="period">Martes, 03 de noviembre de 2026</span></div>
+  <div class="stats">
+    <article class="stat"><div class="stat-top">Ventas del día <span class="stat-icon">◉</span></div><div class="stat-value">S/ 8,462.50</div><div class="stat-foot"><span class="up">↗ 12.8%</span> vs. día anterior</div></article>
+    <article class="stat"><div class="stat-top">Transacciones <span class="stat-icon">▤</span></div><div class="stat-value">386</div><div class="stat-foot"><span class="up">↗ 8.2%</span> vs. día anterior</div></article>
+    <article class="stat"><div class="stat-top">Productos activos <span class="stat-icon">▣</span></div><div class="stat-value">1,248</div><div class="stat-foot">En el catálogo general</div></article>
+    <article class="stat"><div class="stat-top">Alertas de stock <span class="stat-icon">⚠</span></div><div class="stat-value">08</div><div class="stat-foot"><span class="down">Requieren atención</span> en tiendas</div></article>
+  </div>
+  <div class="grid-main">
+    <article class="panel"><div class="panel-head"><div><h3>Rendimiento de ventas</h3><div class="sub">Comparación de ventas por día · monto en soles</div></div><select class="select"><option>Esta semana</option><option>Este mes</option></select></div>
+      <div class="chart" aria-label="Gráfico ilustrativo de ventas semanales">
+        <div class="bar-group"><i class="bar" style="height:48%"></i><i class="bar dark" style="height:58%"></i><label>Lun</label></div>
+        <div class="bar-group"><i class="bar" style="height:65%"></i><i class="bar dark" style="height:53%"></i><label>Mar</label></div>
+        <div class="bar-group"><i class="bar" style="height:54%"></i><i class="bar dark" style="height:70%"></i><label>Mié</label></div>
+        <div class="bar-group"><i class="bar" style="height:78%"></i><i class="bar dark" style="height:65%"></i><label>Jue</label></div>
+        <div class="bar-group"><i class="bar" style="height:61%"></i><i class="bar dark" style="height:84%"></i><label>Vie</label></div>
+        <div class="bar-group"><i class="bar" style="height:88%"></i><i class="bar dark" style="height:76%"></i><label>Sáb</label></div>
+        <div class="bar-group"><i class="bar" style="height:68%"></i><i class="bar dark" style="height:92%"></i><label>Dom</label></div>
+      </div><div class="chart-legend"><span><i class="legend-dot yellow"></i>Semana anterior</span><span><i class="legend-dot"></i>Semana actual</span></div>
+    </article>
+    <article class="panel"><div class="panel-head"><div><h3>Ventas por tienda</h3><div class="sub">Distribución del día</div></div><span class="pill ok">En operación</span></div>
+      <div class="store-list">
+        <div class="store-row"><b>Cayma</b><strong>S/ 3,480.00</strong><small>41% del total</small><div class="track"><i style="width:41%"></i></div></div>
+        <div class="store-row"><b>Cerro Colorado</b><strong>S/ 2,910.50</strong><small>34% del total</small><div class="track"><i style="width:34%"></i></div></div>
+        <div class="store-row"><b>Yanahuara</b><strong>S/ 2,072.00</strong><small>25% del total</small><div class="track"><i style="width:25%"></i></div></div>
+      </div>
+    </article>
+  </div>
+  <div class="lower">
+    <article class="panel"><div class="panel-head"><div><h3>Productos con stock bajo</h3><div class="sub">Productos que necesitan reposición</div></div><button class="btn" data-goto="inventario">Ver inventario →</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Tienda</th><th>Stock actual</th><th>Mínimo</th><th>Estado</th></tr></thead><tbody>
+      <tr><td><span class="product"><i class="prod-icon">🥛</i>Leche evaporada 400 g</span></td><td>Cayma</td><td>6 unid.</td><td>15</td><td><span class="pill bad">Crítico</span></td></tr>
+      <tr><td><span class="product"><i class="prod-icon">🍚</i>Arroz extra 1 kg</span></td><td>Yanahuara</td><td>9 unid.</td><td>20</td><td><span class="pill warn">Bajo</span></td></tr>
+      <tr><td><span class="product"><i class="prod-icon">🧴</i>Aceite vegetal 1 L</span></td><td>Cerro Colorado</td><td>11 unid.</td><td>18</td><td><span class="pill warn">Bajo</span></td></tr>
+      <tr><td><span class="product"><i class="prod-icon">🥤</i>Gaseosa  por 1.5 L</span></td><td>Cayma</td><td>4 unid.</td><td>12</td><td><span class="pill bad">Crítico</span></td></tr>
+      </tbody></table></div>
+    </article>
+    <article class="panel"><div class="panel-head"><div><h3>Actividad pendiente</h3><div class="sub">Acciones que requieren revisión</div></div><span class="pill warn">5 pendientes</span></div>
+      <div class="alert-list">
+        <div class="alert"><div class="alert-ico">↶</div><div><b>Solicitud de anulación #AN-008</b><small>Venta B001-00248 · Cayma · hace 12 min</small><br><a href="#" data-goto="solicitudes">Revisar solicitud →</a></div></div>
+        <div class="alert"><div class="alert-ico">⇄</div><div><b>Traslado pendiente de validación</b><small>Cerro Colorado → Yanahuara · hace 35 min</small><br><a href="#" data-goto="traslados">Ver traslado →</a></div></div>
+        <div class="alert"><div class="alert-ico">⚠</div><div><b>Stock crítico en 2 productos</b><small>Revisar disponibilidad por tienda</small><br><a href="#" data-goto="inventario">Ver alertas →</a></div></div>
+      </div>
+    </article>
+  </div>
+</section>
+<section class="section" id="ventas"><div class="page-head"><div><div class="eyebrow">Operación comercial</div><h1>Ventas</h1><p>Consulta las ventas, comprobantes y medios de pago registrados.</p></div><button class="btn primary" data-action="Reporte de ventas">↓ Exportar ventas</button></div><div class="panel"><div class="panel-head"><div><h3>Últimas ventas registradas</h3><div class="sub">Boletas, facturas y medios de pago</div></div><select class="select"><option>Todas las tiendas</option><option>Cayma</option><option>Cerro Colorado</option><option>Yanahuara</option></select></div><div class="table-wrap"><table><thead><tr><th>Comprobante</th><th>Fecha</th><th>Tienda</th><th>Cajero</th><th>Medio de pago</th><th>Total</th><th>Estado</th></tr></thead><tbody><tr><td>B001-00248</td><td>03/11/2026 08:15</td><td>Cayma</td><td>J. Quispe</td><td>Tarjeta</td><td>S/ 86.50</td><td><span class="pill ok">Pagada</span></td></tr><tr><td>F001-00091</td><td>03/11/2026 08:09</td><td>Yanahuara</td><td>M. Rojas</td><td>Efectivo</td><td>S/ 214.90</td><td><span class="pill ok">Pagada</span></td></tr><tr><td>B001-00247</td><td>03/11/2026 07:58</td><td>Cerro Colorado</td><td>A. Flores</td><td>Billetera SIP</td><td>S/ 32.00</td><td><span class="pill ok">Pagada</span></td></tr><tr><td>B001-00246</td><td>03/11/2026 07:42</td><td>Cayma</td><td>J. Quispe</td><td>Efectivo</td><td>S/ 48.70</td><td><span class="pill warn">Por revisar</span></td></tr></tbody></table></div></div></section>
+<section class="section" id="inventario"><div class="page-head"><div><div class="eyebrow">Control de existencias</div><h1>Inventario</h1><p>Stock por tienda, movimientos, recepción y reposición de mercancía.</p></div><button class="btn primary" data-action="Registrar movimiento de stock">＋ Registrar movimiento</button></div><div class="stats"><article class="stat"><div class="stat-top">Unidades registradas</div><div class="stat-value">18,420</div><div class="stat-foot">Stock consolidado de las 3 tiendas</div></article><article class="stat"><div class="stat-top">Stock bajo</div><div class="stat-value">08</div><div class="stat-foot"><span class="down">Atención requerida</span></div></article><article class="stat"><div class="stat-top">Recepciones del mes</div><div class="stat-value">42</div><div class="stat-foot">Movimientos de entrada</div></article><article class="stat"><div class="stat-top">Mermas registradas</div><div class="stat-value">13</div><div class="stat-foot">Movimientos de salida</div></article></div><div class="panel" style="margin-top:16px"><h3>Existencias por producto y tienda</h3><p class="sub">Vista de demostración; datos de ejemplo.</p><div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Cayma</th><th>Cerro Colorado</th><th>Yanahuara</th><th>Estado</th></tr></thead><tbody><tr><td>Arroz extra 1 kg</td><td>Abarrotes</td><td>32</td><td>28</td><td>9</td><td><span class="pill warn">Bajo</span></td></tr><tr><td>Leche evaporada 400 g</td><td>Lácteos</td><td>6</td><td>25</td><td>31</td><td><span class="pill bad">Crítico</span></td></tr><tr><td>Aceite vegetal 1 L</td><td>Abarrotes</td><td>27</td><td>11</td><td>22</td><td><span class="pill warn">Bajo</span></td></tr></tbody></table></div></div></section>
+<section class="section" id="productos"><div class="page-head"><div><div class="eyebrow">Catálogo general</div><h1>Productos</h1><p>Administra productos, categorías, marcas, unidades y precios.</p></div><button class="btn primary" data-action="Nuevo producto">＋ Nuevo producto</button></div><div class="panel"><div class="panel-head"><div><h3>Catálogo de productos</h3><div class="sub">El precio de venta es único para todas las tiendas según el diseño de datos.</div></div></div><div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Marca</th><th>Unidad</th><th>Precio</th><th>Estado</th></tr></thead><tbody><tr><td>Arroz extra 1 kg</td><td>Abarrotes</td><td>Mass</td><td>unid.</td><td>S/ 4.80</td><td><span class="pill ok">Activo</span></td></tr><tr><td>Leche evaporada 400 g</td><td>Lácteos</td><td>Gloria</td><td>unid.</td><td>S/ 4.20</td><td><span class="pill ok">Activo</span></td></tr><tr><td>Aceite vegetal 1 L</td><td>Abarrotes</td><td>Primor</td><td>unid.</td><td>S/ 8.90</td><td><span class="pill ok">Activo</span></td></tr></tbody></table></div></div></section>
+<section class="section" id="empleados"><div class="page-head"><div><div class="eyebrow">Gestión del equipo</div><h1>Personal y turnos</h1><p>Consulta empleados, roles, cajas y turnos de trabajo.</p></div><button class="btn primary" data-action="Registrar empleado">＋ Nuevo empleado</button></div><div class="panel"><h3>Personal por rol</h3><p class="sub">Roles contemplados en el sistema: Administrador, Cajero y Almacenero.</p><div class="table-wrap"><table><thead><tr><th>Empleado</th><th>DNI</th><th>Rol</th><th>Tienda</th><th>Estado</th><th>Turno</th></tr></thead><tbody><tr><td>Juan Quispe</td><td>••••••21</td><td>Cajero</td><td>Cayma</td><td><span class="pill ok">Activo</span></td><td>08:00 – 16:00</td></tr><tr><td>María Rojas</td><td>••••••45</td><td>Almacenero</td><td>Yanahuara</td><td><span class="pill ok">Activo</span></td><td>07:00 – 15:00</td></tr><tr><td>Administrador</td><td>••••••08</td><td>Administrador</td><td>Cerro Colorado</td><td><span class="pill ok">Activo</span></td><td>08:00 – 17:00</td></tr></tbody></table></div></div></section>
+<section class="section" id="tiendas"><div class="page-head"><div><div class="eyebrow">Sucursales</div><h1>Tiendas</h1><p>Seguimiento de las tres tiendas contempladas en el proyecto de Arequipa.</p></div><button class="btn" data-action="Editar tiendas">⚙ Configuración</button></div><div class="stats"><article class="stat"><div class="stat-top">Cayma <span class="stat-icon">⌂</span></div><div class="stat-value" style="font-size:20px">Activa</div><div class="stat-foot">Distrito de Cayma</div></article><article class="stat"><div class="stat-top">Cerro Colorado <span class="stat-icon">⌂</span></div><div class="stat-value" style="font-size:20px">Activa</div><div class="stat-foot">Distrito de Cerro Colorado</div></article><article class="stat"><div class="stat-top">Yanahuara <span class="stat-icon">⌂</span></div><div class="stat-value" style="font-size:20px">Activa</div><div class="stat-foot">Distrito de Yanahuara</div></article></div></section>
+<section class="section" id="traslados"><div class="page-head"><div><div class="eyebrow">Movimiento entre sucursales</div><h1>Traslados</h1><p>Registra y valida movimientos de mercadería entre tiendas distintas.</p></div><button class="btn primary" data-action="Nuevo traslado">＋ Nuevo traslado</button></div><div class="panel"><h3>Traslados recientes</h3><p class="sub">El sistema contempla origen, destino y actualización de stock.</p><table><thead><tr><th>Código</th><th>Origen</th><th>Destino</th><th>Fecha</th><th>Estado</th></tr></thead><tbody><tr><td>TR-0018</td><td>Cerro Colorado</td><td>Yanahuara</td><td>03/11/2026</td><td><span class="pill warn">Por validar</span></td></tr><tr><td>TR-0017</td><td>Cayma</td><td>Yanahuara</td><td>02/11/2026</td><td><span class="pill ok">Registrado</span></td></tr></tbody></table></div></section>
+<section class="section" id="mermas"><div class="page-head"><div><div class="eyebrow">Control de pérdidas</div><h1>Mermas</h1><p>Registra productos dañados, vencidos u otras causas y descuenta stock.</p></div><button class="btn primary" data-action="Registrar merma">＋ Registrar merma</button></div><div class="panel"><h3>Últimas mermas</h3><p class="sub">Cada registro contempla producto, cantidad y motivo.</p><table><thead><tr><th>Fecha</th><th>Producto</th><th>Tienda</th><th>Cantidad</th><th>Motivo</th></tr></thead><tbody><tr><td>03/11/2026</td><td>Yogurt 1 L</td><td>Cayma</td><td>2 unid.</td><td>Producto vencido</td></tr><tr><td>02/11/2026</td><td>Gaseosa 1.5 L</td><td>Yanahuara</td><td>1 unid.</td><td>Envase dañado</td></tr></tbody></table></div></section>
+<section class="section" id="solicitudes"><div class="page-head"><div><div class="eyebrow">Control y autorización</div><h1>Solicitudes de anulación</h1><p>El administrador revisa y autoriza o rechaza solicitudes de anulación.</p></div></div><div class="panel"><h3>Solicitudes pendientes</h3><p class="sub">Una anulación aprobada revierte stock y emite nota de crédito.</p><table><thead><tr><th>Solicitud</th><th>Venta</th><th>Tienda</th><th>Motivo</th><th>Fecha</th><th>Acción</th></tr></thead><tbody><tr><td>AN-008</td><td>B001-00248</td><td>Cayma</td><td>Error en compra</td><td>08:03</td><td><button class="btn" data-action="Revisar AN-008">Revisar</button></td></tr><tr><td>AN-007</td><td>B001-00231</td><td>Yanahuara</td><td>Producto duplicado</td><td>Ayer</td><td><button class="btn" data-action="Revisar AN-007">Revisar</button></td></tr></tbody></table></div></section>
+<section class="section" id="reportes"><div class="page-head"><div><div class="eyebrow">Análisis del negocio</div><h1>Reportes</h1><p>Consulta indicadores de ventas, stock, movimientos y operación.</p></div><button class="btn primary" data-action="Generar reporte">＋ Generar reporte</button></div><div class="stats"><article class="stat"><div class="stat-top">Reporte de ventas</div><div class="stat-value">Ventas</div><div class="stat-foot">Por fecha, tienda y comprobante</div></article><article class="stat"><div class="stat-top">Reporte de inventario</div><div class="stat-value">Stock</div><div class="stat-foot">Existencias y movimientos</div></article><article class="stat"><div class="stat-top">Reporte de mermas</div><div class="stat-value">Mermas</div><div class="stat-foot">Por producto y motivo</div></article><article class="stat"><div class="stat-top">Reporte de turnos</div><div class="stat-value">Turnos</div><div class="stat-foot">Personal y cajas</div></article></div></section>
+</main></div>
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-head"><h2 id="modalTitle">Nuevo registro</h2><button class="modal-close" id="modalClose" aria-label="Cerrar">×</button></div>
+    <form id="modalForm"><div class="modal-body" id="modalFields"></div>
+      <div class="modal-foot"><button type="button" class="btn" id="modalCancel">Cancelar</button><button type="submit" class="btn primary">Guardar registro</button></div>
+    </form>
+  </div>
+</div>
+<div class="toast" id="toast">Acción de demostración</div>
+
+<script>
+const nav=document.getElementById('nav'),sections=[...document.querySelectorAll('.section')],crumb=document.getElementById('crumb'),toast=document.getElementById('toast');
+let timer, activeModalAction='';
+function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('show'),2600)}
+function go(id){
+  sections.forEach(s=>s.classList.toggle('active',s.id===id));
+  nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+  let b=nav.querySelector(`[data-page="${id}"]`);crumb.textContent=b?b.textContent.trim():'Resumen general';
+  document.getElementById('sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'});
+}
+nav.addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b)go(b.dataset.page)});
+document.getElementById('menu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('bell').onclick=()=>{go('solicitudes');showToast('Mostrando solicitudes pendientes de revisión')};
+document.getElementById('search').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase().trim(); if(!q)return;
+  const b=[...nav.querySelectorAll('button')].find(x=>x.textContent.toLowerCase().includes(q));
+  if(b && q.length>2) { /* navegación al pulsar Enter */ }
+});
+document.getElementById('search').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){let q=e.target.value.toLowerCase();let b=[...nav.querySelectorAll('button')].find(x=>x.textContent.toLowerCase().includes(q));if(b)go(b.dataset.page);else showToast('No se encontró una sección con ese nombre.')}
+});
+document.getElementById('storeFilter').addEventListener('change',e=>showToast('Vista filtrada: '+e.target.value+' · cifras de demostración'));
+document.getElementById('new').onclick=()=>openModal('¿Qué deseas registrar?','quick');
+document.getElementById('export').onclick=()=>exportCSV();
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-goto]');if(g){e.preventDefault();go(g.dataset.goto)}
+  const a=e.target.closest('[data-action]');if(a)openModal(a.dataset.action);
+});
+const backdrop=document.getElementById('modalBackdrop'),fields=document.getElementById('modalFields'),title=document.getElementById('modalTitle');
+function field(label,name,type='text',placeholder='',options=[]){
+  let control=type==='select'?`<select name="${name}" required>${options.map(x=>`<option>${x}</option>`).join('')}</select>`:`<input name="${name}" type="${type}" placeholder="${placeholder}" required>`;
+  return `<div class="field"><label>${label}</label>${control}</div>`;
+}
+function openModal(action){
+  activeModalAction=action; title.textContent=action; let content='';
+  if(action==='quick'){
+    content=field('Tipo de registro','tipo','select','',['Producto','Empleado','Traslado','Merma']);
+  } else if(action.toLowerCase().includes('producto')){
+    content=field('Nombre del producto','nombre')+field('Categoría','categoria','select','',['Abarrotes','Lácteos','Bebidas','Limpieza'])+field('Marca','marca')+field('Precio (S/)','precio','number');
+  } else if(action.toLowerCase().includes('empleado')){
+    content=field('Nombre completo','nombre')+field('Rol','rol','select','',['Cajero','Almacenero','Administrador'])+field('Tienda','tienda','select','',['Cayma','Cerro Colorado','Yanahuara'])+field('Correo','correo','email');
+  } else if(action.toLowerCase().includes('traslado')){
+    content=field('Tienda de origen','origen','select','',['Cayma','Cerro Colorado','Yanahuara'])+field('Tienda de destino','destino','select','',['Cayma','Cerro Colorado','Yanahuara'])+field('Producto','producto')+field('Cantidad','cantidad','number');
+  } else if(action.toLowerCase().includes('merma')){
+    content=field('Producto','producto')+field('Tienda','tienda','select','',['Cayma','Cerro Colorado','Yanahuara'])+field('Cantidad','cantidad','number')+field('Motivo','motivo','select','',['Vencido','Dañado','Pérdida']);
+  } else if(action.toLowerCase().includes('revisar')){
+    content='<p style="margin:0;color:#666;line-height:1.6">Revisa la solicitud antes de decidir. En esta maqueta la decisión solo cambia el estado visual, no se conecta a una base de datos.</p>'+field('Observación','observacion');
+  } else {
+    content=field('Nombre o descripción','nombre')+field('Detalle','detalle');
+  }
+  fields.innerHTML=content;backdrop.classList.add('open');
+}
+function closeModal(){backdrop.classList.remove('open')}
+document.getElementById('modalClose').onclick=closeModal;document.getElementById('modalCancel').onclick=closeModal;
+backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+document.getElementById('modalForm').addEventListener('submit',e=>{
+  e.preventDefault();const data=Object.fromEntries(new FormData(e.target).entries());
+  if(activeModalAction==='quick'){
+    const map={Producto:'Nuevo producto',Empleado:'Registrar empleado',Traslado:'Nuevo traslado',Merma:'Registrar merma'};
+    closeModal();openModal(map[data.tipo]||'Nuevo registro');return;
+  }
+  if(activeModalAction.toLowerCase().includes('revisar')){
+    const row=[...document.querySelectorAll('tr')].find(r=>r.textContent.includes(activeModalAction.replace('Revisar ','')));
+    if(row){const cell=row.lastElementChild;cell.innerHTML='<span class="pill ok">Revisada</span>';}
+  } else if(activeModalAction.toLowerCase().includes('producto') && data.nombre){
+    const tbody=document.querySelector('#productos tbody');
+    if(tbody){const tr=document.createElement('tr');tr.innerHTML=`<td>${safe(data.nombre)}</td><td>${safe(data.categoria||'—')}</td><td>${safe(data.marca||'—')}</td><td>unid.</td><td>S/ ${safe(data.precio||'0.00')}</td><td><span class="pill ok">Activo · demo</span></td>`;tbody.appendChild(tr);}
+  }
+  closeModal();showToast('Registro agregado en la vista de demostración');
+  e.target.reset();
+});
+function safe(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportCSV(){
+  const active=document.querySelector('.section.active');const table=active?.querySelector('table');
+  if(!table){showToast('Esta sección no tiene una tabla para exportar');return}
+  const rows=[...table.querySelectorAll('tr')].map(r=>[...r.children].map(c=>'"'+c.innerText.replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=(active.id||'reporte')+'.csv';a.click();URL.revokeObjectURL(url);showToast('Archivo CSV generado');
+}
+// Search within visible tables as the user types.
+document.querySelectorAll('.section table').forEach(table=>{
+  const tools=document.createElement('div');tools.className='table-tools';
+  const input=document.createElement('input');input.placeholder='Buscar en esta tabla…';input.setAttribute('aria-label','Buscar en esta tabla');
+  input.addEventListener('input',()=>{const q=input.value.toLowerCase();table.querySelectorAll('tbody tr').forEach(row=>row.style.display=row.innerText.toLowerCase().includes(q)?'':'none')});
+  tools.appendChild(input);table.parentElement.insertBefore(tools,table);
+});
+// Small interaction: clicking a notification indicator opens pending requests.
+</script>
+</body></html>
