@@ -1,0 +1,39 @@
+/* Estilos de Minimarket Mass: negro, amarillo y rojo. Lo usan el login y las pantallas internas. */
+:root { --negro:#121212; --amarillo:#ffc400; --rojo:#d62828; --gris:#f3f3f3; --texto:#1b1b1b; }
+* { box-sizing: border-box; }
+body { margin:0; font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--texto); background:var(--gris); }
+a { color:inherit; }
+
+/* pantallas internas */
+.barra { display:flex; align-items:center; gap:1rem; padding:.6rem 1rem; background:var(--negro); color:#fff; }
+.barra strong { color:var(--amarillo); font-size:1.25rem; }
+.barra nav { flex:1; display:flex; gap:1rem; }
+.barra a { text-decoration:none; }
+.barra a:hover { color:var(--amarillo); }
+.barra form { display:flex; align-items:center; gap:.7rem; margin:0; font-size:.9rem; }
+.contenido { max-width:960px; margin:0 auto; padding:1rem; }
+table { width:100%; border-collapse:collapse; background:#fff; }
+th, td { padding:.45rem .6rem; border:1px solid #ddd; text-align:left; }
+th { background:var(--negro); color:var(--amarillo); }
+
+/* botones y campos */
+button { cursor:pointer; border:0; border-radius:6px; padding:.6rem 1rem; font:inherit; font-weight:700; background:var(--amarillo); color:var(--negro); }
+button:hover { filter:brightness(.95); }
+label { display:block; margin:.9rem 0 .25rem; font-weight:600; }
+input { width:100%; padding:.65rem; border:2px solid #cfcfcf; border-radius:6px; font:inherit; }
+input:focus { outline:0; border-color:var(--amarillo); }
+fieldset { border:0; margin:0; padding:0; }
+fieldset:disabled { opacity:.5; }
+fieldset button { width:100%; margin-top:1.2rem; }
+
+/* login y error */
+body.login { min-height:100vh; display:grid; place-items:center; background:var(--negro); }
+.tarjeta { width:min(92vw,380px); background:#fff; border-top:8px solid var(--amarillo); border-bottom:8px solid var(--rojo); border-radius:10px; padding:1.6rem; }
+.tarjeta h1 { margin:.2rem 0 .6rem; font-size:1.5rem; }
+.marca { margin:0; font-size:.8rem; letter-spacing:.08em; }
+.marca strong { color:var(--rojo); font-size:1.1rem; letter-spacing:0; }
+.estado { display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 .4rem; }
+.chip { padding:.15rem .65rem; border-radius:99px; background:#e9e9e9; font-size:.8rem; font-weight:700; }
+.chip.ok { background:var(--amarillo); }
+.chip.mal { background:var(--rojo); color:#fff; }
+.error { margin:1rem 0 0; padding:.55rem .75rem; background:#fde8e8; border-left:4px solid var(--rojo); color:#8a1414; }
