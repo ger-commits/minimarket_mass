@@ -25,11 +25,22 @@ minimarket_mass/
 │       BilleteraDigitalSip, Stock, LoteProducto, TipoMovimiento, MovimientoStock,
 │       TrasladoMercaderia, Merma, Caja, CajaTurno, MovimientoCaja, TurnoTrabajo (.php)
 ├── views/         # Pantallas: auth/, productos/, stock/, ventas/
-├── public/        # Único punto de entrada web (index.php) + css/, js/, img/
+├── public/        # Archivos públicos: index.php, páginas HTML + css/, js/, img/
 ├── storage/       # Archivos de trabajo (intentos fallidos de login); no se sube a GitHub
 ├── database/      # Scripts SQL
 └── docs/          # Diagrama ER y diseño de la base de datos
 ```
+
+## Páginas HTML adicionales
+
+Las páginas independientes también se sirven desde `public/`, con sus recursos separados:
+
+- `public/almacenamiento__.html` carga `public/css/almacenamiento.css` y `public/js/almacenamiento.js`.
+- `public/panel_administrador_mass.html` carga `public/css/panel-administrador.css` y `public/js/panel-administrador.js`.
+- `public/login_almacenero.html` carga `public/css/login/almacenero.css` y `public/js/login/almacenero/login.js`.
+- `public/login_administrador.html` carga `public/css/login/administrador.css` y los scripts `public/js/login/administrador/`.
+
+Así, el HTML contiene la estructura de cada pantalla y los estilos y la lógica JavaScript quedan organizados en sus carpetas correspondientes. Se accede a ellas desde el servidor con `/almacenamiento__.html` y `/panel_administrador_mass.html`.
 
 ## Base de datos
 
@@ -127,3 +138,8 @@ Administrador, Cajero y Almacenero.
 ## Autor
 
 ger-commits
+
+## Accesos por rol
+
+- Almacenero: `http://localhost:8000/login_almacenero.html`
+- Administrador: `http://localhost:8000/login_administrador.html`
