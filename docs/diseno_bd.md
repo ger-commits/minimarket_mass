@@ -723,7 +723,7 @@ Las tablas estan en el **mismo orden en que se crean** en `schema.sql`: primero 
 - `stock_nuevo >= 0`
 - `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) = 1`
 
-## 5. Relaciones (43)
+## 5. Relaciones (46)
 
 Cardinalidad leida desde el padre hacia el hijo. `1` = exactamente uno, `0..1` = cero o uno, `0..N` = cero o muchos, `1..N` = uno o muchos. Una relacion **identificadora** es aquella cuya llave foranea forma parte de la llave primaria del hijo.
 
