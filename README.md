@@ -239,9 +239,10 @@ La contraseña de prueba de todos es `Mass2026`. En la base se guarda solo su **
 `database/consultas.sql` está dividido en secciones:
 
 - **A. Catálogo y personal:** productos con categoría y marca, empleados por tienda y rol.
-- **B. Inventario:** stock por tienda, productos bajo el mínimo, kardex, traslados, mermas y lotes por vencer.
-- **C. Ventas y cobro:** comprobantes, ventas por día y tienda, productos más vendidos, ventas con pagos múltiples y anulaciones (quién pidió y quién autorizó).
-- **D. Caja:** cuadre de cada turno, movimientos de caja y devoluciones.
+- **B. Inventario:** stock por tienda, productos por reponer, stock total de la cadena, kardex de un producto, traslados y mermas.
+- **C. Ventas:** comprobantes emitidos, ventas por día y por tienda, boletas contra facturas, productos y categorías más vendidos, ventas por cajero, cobros por método de pago, pagos mixtos y ventas anuladas (quién pidió y quién autorizó).
+- **D. Caja:** cuadre de cada turno y movimientos de caja.
+- **E. Devoluciones y lotes:** productos devueltos, ventas netas por día y lotes con su vencimiento.
 - **F. Control de reglas:** consultas que **deben devolver 0 filas** si los datos cumplen las reglas (pagos que no suman el total, factura sin RUC, correlativos con huecos, stock distinto del kardex, anulaciones incoherentes, y más).
 - **H. Módulo del administrador:** bandeja de solicitudes pendientes de su tienda, rol de turnos programados, solicitudes por estado y controles de turnos y traslados.
 
