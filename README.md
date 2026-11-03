@@ -13,7 +13,17 @@ Sistema de ventas e inventario para **Tienda Mass** (grupo Intercorp), con 3 tie
 ```
 minimarket_mass/
 ├── controllers/   # Lógica de cada pantalla (Auth, Producto, Stock, Venta)
-├── models/        # Entidades (Empleado, Producto, Venta...) y repositorios de acceso a datos
+├── models/           # Un modelo por tabla (31 tablas) y repositorios de acceso a datos
+│   ├── Database.php             # Conexión PDO
+│   ├── Empleado.php             # Clase base de los roles
+│   ├── Administrador.php / Cajero.php / Almacenero.php   # Roles y sus permisos
+│   ├── EmpleadoRepository.php   # Autenticación y consulta de empleados
+│   ├── ProductoRepository.php / StockRepository.php / VentaRepository.php
+│   └── Distrito, Tienda, Rol, Cliente, Categoria, Marca, UnidadMedida, Producto,
+│       TipoComprobante, SerieComprobante, Venta, DetalleVenta, SolicitudAnulacion,
+│       DevolucionVenta, DetalleDevolucion, MetodoPago, PagoVenta, Efectivo, Tarjeta,
+│       BilleteraDigitalSip, Stock, LoteProducto, TipoMovimiento, MovimientoStock,
+│       TrasladoMercaderia, Merma, Caja, CajaTurno, MovimientoCaja, TurnoTrabajo (.php)
 ├── views/         # Pantallas: auth/, productos/, stock/, ventas/
 ├── public/        # Único punto de entrada web (index.php) + css/, js/, img/
 ├── storage/       # Archivos de trabajo (intentos fallidos de login); no se sube a GitHub
