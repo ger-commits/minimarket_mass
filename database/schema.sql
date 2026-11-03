@@ -238,7 +238,22 @@ CREATE TABLE caja_turno (
     CONSTRAINT fk_turno_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
 ) ENGINE=InnoDB;
 
--- Cabecera del traslado de mercaderia entre dos tiendas (origen y destino).
+-- Turnos de trabajo (horario) que el administrador programa a los empleados de su tienda. No es el turno de caja.
+CREATE TABLE turno_trabajo (
+    id_turno_trabajo     INT UNSIGNED       NOT NULL AUTO_INCREMENT,
+    fecha                DATE               NOT NULL,
+    hora_inicio          TIME               NOT NULL,
+    hora_fin             TIME               NOT NULL,
+    id_empleado          MEDIUMINT UNSIGNED NOT NULL,             -- empleado que trabaja
+    id_empleado_programa MEDIUMINT UNSIGNED NOT NULL,             -- administrador que lo programa
+    CONSTRAINT pk_turno_trabajo PRIMARY KEY (id_turno_trabajo),
+    CONSTRAINT uq_turno_trabajo_dia UNIQUE (id_empleado, fecha),  -- un turno por empleado y dia
+    CONSTRAINT ck_turno_trabajo_horas CHECK (hora_fin > hora_inicio),
+    CONSTRAINT fk_turno_trabajo_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_turno_trabajo_programa FOREIGN KEY (id_empleado_programa) REFERENCES empleado (id_empleado)
+) ENGINE=InnoDB;
+
+-- Cabecera del traslado de mercaderia entre dos tiendas (origen y destino). Lo registra el administrador de la tienda de origen.
 CREATE TABLE traslado_mercaderia (
     id_traslado       INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     fecha_hora        DATETIME          NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -324,7 +339,7 @@ CREATE TABLE movimiento_caja (
 ) ENGINE=InnoDB;
 
 /* ---------------------------------------------------------------------
-   NIVEL 6 - Detalle, anulaciones, pagos y devoluciones de la venta
+   NIVEL 6 - Detalle, solicitudes de anulacion, pagos y devoluciones de la venta
    --------------------------------------------------------------------- */
 
 -- Lineas de la venta: producto, cantidad, precio al momento de vender e importe.
@@ -343,17 +358,32 @@ CREATE TABLE detalle_venta (
     CONSTRAINT fk_detalle_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto)
 ) ENGINE=InnoDB;
 
--- Registro de la anulacion de una venta (como maximo una por venta).
-CREATE TABLE anulacion_venta (
-    id_anulacion INT UNSIGNED       NOT NULL AUTO_INCREMENT,
-    fecha_hora   DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    motivo       VARCHAR(150)       NOT NULL,
-    id_venta     BIGINT UNSIGNED    NOT NULL,
-    id_empleado  MEDIUMINT UNSIGNED NOT NULL,
-    CONSTRAINT pk_anulacion PRIMARY KEY (id_anulacion),
-    CONSTRAINT uq_anulacion_venta UNIQUE (id_venta),
-    CONSTRAINT fk_anulacion_venta FOREIGN KEY (id_venta) REFERENCES venta (id_venta),
-    CONSTRAINT fk_anulacion_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
+-- Solicitud de anulacion de una venta: la pide el cajero y la AUTORIZA o RECHAZA el administrador de la tienda.
+-- Si se aprueba, la venta pasa a ANULADA (como maximo una solicitud aprobada por venta). Una venta con una
+-- solicitud rechazada puede volver a solicitarse.
+CREATE TABLE solicitud_anulacion (
+    id_solicitud          INT UNSIGNED       NOT NULL AUTO_INCREMENT,
+    fecha_hora_solicitud  DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    motivo                VARCHAR(150)       NOT NULL,
+    estado                VARCHAR(10)        NOT NULL DEFAULT 'PENDIENTE',
+    fecha_hora_resolucion DATETIME           NULL,                -- opcional: NULL mientras esta PENDIENTE
+    motivo_rechazo        VARCHAR(150)       NULL,                -- opcional: solo si fue RECHAZADA
+    id_venta              BIGINT UNSIGNED    NOT NULL,
+    id_empleado_solicita  MEDIUMINT UNSIGNED NOT NULL,            -- cajero que la pide
+    id_empleado_resuelve  MEDIUMINT UNSIGNED NULL,                -- administrador que la autoriza o rechaza (NULL si PENDIENTE)
+    anulacion_aprobada    BIGINT UNSIGNED GENERATED ALWAYS AS (CASE WHEN estado = 'APROBADA' THEN id_venta END) STORED,
+    CONSTRAINT pk_solicitud PRIMARY KEY (id_solicitud),
+    CONSTRAINT uq_solicitud_aprobada UNIQUE (anulacion_aprobada),   -- una sola aprobada por venta (NULL no cuenta)
+    CONSTRAINT ck_solicitud_estado CHECK (
+        (estado = 'PENDIENTE' AND id_empleado_resuelve IS NULL AND fecha_hora_resolucion IS NULL AND motivo_rechazo IS NULL)
+        OR (estado = 'APROBADA' AND id_empleado_resuelve IS NOT NULL AND fecha_hora_resolucion IS NOT NULL
+            AND fecha_hora_resolucion >= fecha_hora_solicitud AND motivo_rechazo IS NULL)
+        OR (estado = 'RECHAZADA' AND id_empleado_resuelve IS NOT NULL AND fecha_hora_resolucion IS NOT NULL
+            AND fecha_hora_resolucion >= fecha_hora_solicitud AND motivo_rechazo IS NOT NULL)),
+    CONSTRAINT ck_solicitud_distintos CHECK (id_empleado_resuelve IS NULL OR id_empleado_resuelve <> id_empleado_solicita),
+    CONSTRAINT fk_solicitud_venta FOREIGN KEY (id_venta) REFERENCES venta (id_venta),
+    CONSTRAINT fk_solicitud_solicita FOREIGN KEY (id_empleado_solicita) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_solicitud_resuelve FOREIGN KEY (id_empleado_resuelve) REFERENCES empleado (id_empleado)
 ) ENGINE=InnoDB;
 
 -- Pagos de una venta. Puede haber varios y deben sumar el total.

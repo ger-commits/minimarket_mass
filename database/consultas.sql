@@ -184,14 +184,17 @@ SELECT CONCAT(s.serie, '-', LPAD(v.numero_correlativo, 8, '0')) AS comprobante, 
  GROUP BY v.id_venta, s.serie, v.numero_correlativo, v.total
 HAVING COUNT(*) > 1;
 
--- 18. Que ventas se anularon, por que motivo y quien las anulo.
+-- 18. Que ventas se anularon: quien lo pidio, quien lo autorizo y por que motivo.
 SELECT CONCAT(s.serie, '-', LPAD(v.numero_correlativo, 8, '0')) AS comprobante, v.total,
-       a.fecha_hora AS fecha_anulacion, a.motivo, CONCAT(e.nombres, ' ', e.apellidos) AS anulado_por
-  FROM anulacion_venta a
-  JOIN venta v             ON v.id_venta = a.id_venta
+       sa.fecha_hora_resolucion AS fecha_anulacion, sa.motivo,
+       CONCAT(ec.nombres, ' ', ec.apellidos) AS pedido_por, CONCAT(ea.nombres, ' ', ea.apellidos) AS autorizado_por
+  FROM solicitud_anulacion sa
+  JOIN venta v             ON v.id_venta = sa.id_venta
   JOIN serie_comprobante s ON s.id_serie = v.id_serie
-  JOIN empleado e          ON e.id_empleado = a.id_empleado
- ORDER BY a.fecha_hora;
+  JOIN empleado ec         ON ec.id_empleado = sa.id_empleado_solicita
+  JOIN empleado ea         ON ea.id_empleado = sa.id_empleado_resuelve
+ WHERE sa.estado = 'APROBADA'
+ ORDER BY sa.fecha_hora_resolucion;
 
 /* ---------------------------------------------------------------------
    D. CAJA
@@ -328,18 +331,21 @@ SELECT v.id_venta
  WHERE v.fecha_hora < ct.fecha_hora_apertura
     OR (ct.fecha_hora_cierre IS NOT NULL AND v.fecha_hora > ct.fecha_hora_cierre);
 
--- 31. Anulaciones incoherentes: venta ANULADA sin anulacion (o al reves), o anulada por alguien que no es administrador de su tienda.
+-- 31. Anulaciones incoherentes: venta ANULADA sin solicitud APROBADA (o al reves), solicitud de un empleado que no es el cajero de la venta,
+--     o resuelta por alguien que no es administrador de la tienda de la venta.
 SELECT v.id_venta
   FROM venta v
-  LEFT JOIN anulacion_venta a ON a.id_venta = v.id_venta
- WHERE (v.estado = 'ANULADA') <> (a.id_anulacion IS NOT NULL)
+  LEFT JOIN solicitud_anulacion sa ON sa.id_venta = v.id_venta AND sa.estado = 'APROBADA'
+ WHERE (v.estado = 'ANULADA') <> (sa.id_solicitud IS NOT NULL)
 UNION
-SELECT a.id_venta
-  FROM anulacion_venta a
-  JOIN venta v             ON v.id_venta = a.id_venta
+SELECT sa.id_venta
+  FROM solicitud_anulacion sa
+  JOIN venta v             ON v.id_venta = sa.id_venta
+  JOIN caja_turno ct       ON ct.id_caja_turno = v.id_caja_turno
   JOIN serie_comprobante s ON s.id_serie = v.id_serie
-  JOIN empleado e          ON e.id_empleado = a.id_empleado
- WHERE e.id_rol <> 1 OR e.id_tienda <> s.id_tienda;
+  LEFT JOIN empleado e     ON e.id_empleado = sa.id_empleado_resuelve
+ WHERE sa.id_empleado_solicita <> ct.id_empleado
+    OR (sa.id_empleado_resuelve IS NOT NULL AND (e.id_rol <> 1 OR e.id_tienda <> s.id_tienda));
 
 -- 32. Pagos sin el detalle de su metodo (efectivo, tarjeta o Sip), o con mas de uno.
 SELECT pv.id_pago
@@ -419,3 +425,58 @@ SELECT v.id_venta
                         WHERE mc.id_venta = v.id_venta AND mc.tipo = 'DEVOLUCION'), 0)
            - COALESCE((SELECT SUM(dv.monto_devuelto) FROM devolucion_venta dv
                         WHERE dv.id_venta = v.id_venta), 0), 2) <> 0;
+
+
+/* ---------------------------------------------------------------------
+   H. MODULO DEL ADMINISTRADOR (solicitudes, turnos de trabajo y traslados)
+   --------------------------------------------------------------------- */
+
+-- 40. Bandeja del administrador: solicitudes de anulacion PENDIENTES de su tienda (cambiar el 2 por la tienda del administrador).
+SELECT sa.id_solicitud, sa.fecha_hora_solicitud, CONCAT(s.serie, '-', LPAD(v.numero_correlativo, 8, '0')) AS comprobante,
+       v.total, sa.motivo, CONCAT(e.nombres, ' ', e.apellidos) AS pedido_por
+  FROM solicitud_anulacion sa
+  JOIN venta v             ON v.id_venta = sa.id_venta
+  JOIN serie_comprobante s ON s.id_serie = v.id_serie
+  JOIN empleado e          ON e.id_empleado = sa.id_empleado_solicita
+ WHERE sa.estado = 'PENDIENTE' AND s.id_tienda = 2
+ ORDER BY sa.fecha_hora_solicitud;
+
+-- 41. Rol de turnos programados: quien trabaja, que dia, en que horario y quien lo programo.
+SELECT t.nombre_tienda, tt.fecha, CONCAT(e.nombres, ' ', e.apellidos) AS empleado, r.nombre_rol,
+       tt.hora_inicio, tt.hora_fin, CONCAT(p.nombres, ' ', p.apellidos) AS programado_por
+  FROM turno_trabajo tt
+  JOIN empleado e ON e.id_empleado = tt.id_empleado
+  JOIN rol r      ON r.id_rol = e.id_rol
+  JOIN tienda t   ON t.id_tienda = e.id_tienda
+  JOIN empleado p ON p.id_empleado = tt.id_empleado_programa
+ ORDER BY t.nombre_tienda, tt.fecha, tt.hora_inicio, e.apellidos;
+
+-- 42. Solicitudes de anulacion por estado y tienda (cuantas se aprobaron, rechazaron o siguen pendientes).
+SELECT t.nombre_tienda, sa.estado, COUNT(*) AS solicitudes
+  FROM solicitud_anulacion sa
+  JOIN venta v             ON v.id_venta = sa.id_venta
+  JOIN serie_comprobante s ON s.id_serie = v.id_serie
+  JOIN tienda t            ON t.id_tienda = s.id_tienda
+ GROUP BY t.nombre_tienda, sa.estado
+ ORDER BY t.nombre_tienda, sa.estado;
+
+-- 43. Turnos de trabajo incoherentes: programados por alguien que no es administrador de la tienda del empleado.
+SELECT tt.id_turno_trabajo
+  FROM turno_trabajo tt
+  JOIN empleado e ON e.id_empleado = tt.id_empleado
+  JOIN empleado p ON p.id_empleado = tt.id_empleado_programa
+ WHERE p.id_rol <> 1 OR p.id_tienda <> e.id_tienda;
+
+-- 44. Cajeros con turno de caja un dia en que no tenian turno de trabajo programado (o fuera de su horario).
+SELECT ct.id_caja_turno
+  FROM caja_turno ct
+  LEFT JOIN turno_trabajo tt ON tt.id_empleado = ct.id_empleado AND tt.fecha = DATE(ct.fecha_hora_apertura)
+ WHERE tt.id_turno_trabajo IS NULL
+    OR TIME(ct.fecha_hora_apertura) < tt.hora_inicio
+    OR (ct.fecha_hora_cierre IS NOT NULL AND TIME(ct.fecha_hora_cierre) > tt.hora_fin);
+
+-- 45. Traslados incoherentes: no los registro un administrador de la tienda de origen.
+SELECT tr.id_traslado
+  FROM traslado_mercaderia tr
+  JOIN empleado e ON e.id_empleado = tr.id_empleado
+ WHERE e.id_rol <> 1 OR e.id_tienda <> tr.id_tienda_origen;

@@ -12,16 +12,17 @@
 
 - el **catalogo** de productos (categoria, marca, unidad de medida y precio unico para todas las tiendas);
 - el **stock de cada producto en cada tienda**, con su historial (kardex), los traslados de mercaderia entre tiendas y las mermas;
-- la **venta en caja**: turnos de caja, boletas y facturas con serie y correlativo por tienda, detalle de productos, anulaciones;
+- la **venta en caja**: turnos de caja, boletas y facturas con serie y correlativo por tienda, detalle de productos y solicitudes de anulacion que autoriza el administrador;
 - el **cobro**: una venta puede pagarse con varios metodos (efectivo, tarjeta y billetera digital Sip);
 - las **devoluciones** de productos de una venta, que regresan al stock y sacan el dinero de la caja;
 - los **movimientos de caja** del turno (ingresos de sencillo, retiros de seguridad, gastos y devoluciones de dinero), para cuadrar el efectivo;
 - los **lotes con fecha de vencimiento** de los productos perecibles (leche, yogurt), para vender primero lo que vence antes;
+- el **modulo del administrador**: autoriza o rechaza las anulaciones que pide el cajero, programa los turnos de trabajo de su tienda y registra los traslados de mercaderia;
 - los **empleados** (administrador, cajero y almacenero) y los **clientes** (solo DNI y RUC).
 
 **Fuera de alcance:** compras a proveedores (por eso no existe la entidad proveedor), guias de remision, facturacion electronica, puntos y promociones. No hay un nombre de usuario aparte: el empleado ingresa al sistema con su DNI y su contrasena, que se guarda cifrada.
 
-**Tamano del modelo:** 30 tablas, 43 relaciones (43 claves foraneas), 152 columnas.
+**Tamano del modelo:** 31 tablas, 46 relaciones (46 claves foraneas), 163 columnas.
 
 ## 2. Archivos del repositorio y orden de ejecucion
 
@@ -345,7 +346,7 @@ Las tablas estan en el **mismo orden en que se crean** en `schema.sql`: primero 
 - `cantidad_actual >= 0`
 - `stock_minimo >= 0`
 
-### Nivel 4: Turnos, traslados, mermas y lotes
+### Nivel 4: Turnos, horarios, traslados, mermas y lotes
 
 #### `caja_turno`
 
@@ -370,6 +371,27 @@ Las tablas estan en el **mismo orden en que se crean** en `schema.sql`: primero 
 
 - `monto_inicial >= 0`
 - `(estado = 'ABIERTO' AND fecha_hora_cierre IS NULL AND monto_cierre IS NULL) OR (estado = 'CERRADO' AND fecha_hora_cierre IS NOT NULL AND monto_cierre IS NOT NULL AND monto_cierre >= 0 AND fecha_hora_cierre >= fecha_hora_apertura)`
+
+#### `turno_trabajo`
+
+**Para que sirve:** Horario de trabajo que el **administrador programa** a los empleados de su tienda (dia y hora de entrada y salida). No es el turno de caja (`caja_turno`), que registra el dinero.
+
+| Columna | Tipo | Nulo | Llave | Descripcion |
+|---|---|---|---|---|
+| `id_turno_trabajo` | `INT UNSIGNED AUTO_INCREMENT` | No | PK | Identificador del turno de trabajo. |
+| `fecha` | `DATE` | No |  | Dia en que se trabaja. |
+| `hora_inicio` | `TIME` | No |  | Hora de entrada. |
+| `hora_fin` | `TIME` | No |  | Hora de salida. |
+| `id_empleado` | `MEDIUMINT UNSIGNED` | No | FK → `empleado` | Empleado que trabaja. |
+| `id_empleado_programa` | `MEDIUMINT UNSIGNED` | No | FK → `empleado` | Administrador que programa el turno. |
+
+**Clave primaria:** `id_turno_trabajo`.
+
+**Claves foraneas:** `id_empleado` → `empleado(id_empleado)`; `id_empleado_programa` → `empleado(id_empleado)`.
+
+**Valores unicos:** `(id_empleado, fecha)` (un turno por empleado y dia).
+
+**Restricciones `CHECK`:** `hora_fin > hora_inicio`.
 
 #### `traslado_mercaderia`
 
@@ -490,7 +512,7 @@ Las tablas estan en el **mismo orden en que se crean** en `schema.sql`: primero 
 - `monto > 0`
 - `(tipo = 'DEVOLUCION' AND id_venta IS NOT NULL) OR (tipo <> 'DEVOLUCION' AND id_venta IS NULL)`
 
-### Nivel 6: Detalle, anulaciones, pagos y devoluciones de la venta
+### Nivel 6: Detalle, solicitudes de anulacion, pagos y devoluciones de la venta
 
 #### `detalle_venta`
 
@@ -515,23 +537,33 @@ Las tablas estan en el **mismo orden en que se crean** en `schema.sql`: primero 
 - `precio_unitario > 0`
 - `importe = ROUND(cantidad * precio_unitario, 2)`
 
-#### `anulacion_venta`
+#### `solicitud_anulacion`
 
-**Para que sirve:** Registro de la anulacion de una venta (como maximo una por venta).
+**Para que sirve:** El cajero **pide** anular una venta y el administrador de la tienda la **autoriza o rechaza**. Reemplaza a la antigua tabla `anulacion_venta`: ahora queda registrado quien la pidio, quien la resolvio y el resultado.
 
 | Columna | Tipo | Nulo | Llave | Descripcion |
 |---|---|---|---|---|
-| `id_anulacion` | `INT UNSIGNED AUTO_INCREMENT` | No | PK | Identificador de la anulacion. |
-| `fecha_hora` | `DATETIME` | No |  | Cuando se anulo. Por defecto: `CURRENT_TIMESTAMP`. |
-| `motivo` | `VARCHAR(150)` | No |  | Por que se anulo. |
-| `id_venta` | `BIGINT UNSIGNED` | No | FK → `venta` | Venta anulada (unica: una venta se anula una sola vez). |
-| `id_empleado` | `MEDIUMINT UNSIGNED` | No | FK → `empleado` | Administrador de la tienda que la anulo. |
+| `id_solicitud` | `INT UNSIGNED AUTO_INCREMENT` | No | PK | Identificador de la solicitud. |
+| `fecha_hora_solicitud` | `DATETIME` | No |  | Cuando la pidio el cajero. Por defecto: `CURRENT_TIMESTAMP`. |
+| `motivo` | `VARCHAR(150)` | No |  | Por que se pide anular la venta. |
+| `estado` | `VARCHAR(10)` | No |  | PENDIENTE (por defecto), APROBADA o RECHAZADA. |
+| `fecha_hora_resolucion` | `DATETIME` | Si |  | Cuando la resolvio el administrador. NULL mientras esta PENDIENTE. |
+| `motivo_rechazo` | `VARCHAR(150)` | Si |  | Por que se rechazo. Solo si el estado es RECHAZADA. |
+| `id_venta` | `BIGINT UNSIGNED` | No | FK → `venta` | Venta cuya anulacion se solicita. |
+| `id_empleado_solicita` | `MEDIUMINT UNSIGNED` | No | FK → `empleado` | Cajero que la pide. |
+| `id_empleado_resuelve` | `MEDIUMINT UNSIGNED` | Si | FK → `empleado` | Administrador que la autoriza o rechaza. NULL mientras esta PENDIENTE. |
+| `anulacion_aprobada` | `BIGINT UNSIGNED` (columna generada) | Si |  | Copia de `id_venta` solo cuando el estado es APROBADA; con su `UNIQUE` impide aprobar dos veces la anulacion de una misma venta. |
 
-**Clave primaria:** `id_anulacion`.
+**Clave primaria:** `id_solicitud`.
 
-**Claves foraneas:** `id_venta` → `venta(id_venta)`; `id_empleado` → `empleado(id_empleado)`.
+**Claves foraneas:** `id_venta` → `venta(id_venta)`; `id_empleado_solicita` → `empleado(id_empleado)`; `id_empleado_resuelve` → `empleado(id_empleado)`.
 
-**Valores unicos:** `id_venta`.
+**Valores unicos:** `anulacion_aprobada` (una sola solicitud APROBADA por venta; una rechazada puede volver a pedirse).
+
+**Restricciones `CHECK`:**
+- `estado` es PENDIENTE, APROBADA o RECHAZADA, y los campos de resolucion son coherentes con el estado: PENDIENTE no tiene resolucion; APROBADA tiene administrador y fecha; RECHAZADA ademas tiene motivo de rechazo.
+- La resolucion no puede ser anterior a la solicitud.
+- Quien resuelve es distinto de quien solicita.
 
 #### `pago_venta`
 
@@ -710,36 +742,39 @@ Cardinalidad leida desde el padre hacia el hijo. `1` = exactamente uno, `0..1` =
 | 11 | `cliente` | `venta` | 0..1 : 0..N | `id_cliente` | cliente compra en venta |
 | 12 | `venta` | `detalle_venta` | 1 : 1..N | `id_venta` | venta contiene detalle_venta |
 | 13 | `producto` | `detalle_venta` | 1 : 0..N | `id_producto` | producto se vende en detalle_venta |
-| 14 | `venta` | `anulacion_venta` | 1 : 0..1 | `id_venta` | venta se anula con anulacion_venta |
-| 15 | `empleado` | `anulacion_venta` | 1 : 0..N | `id_empleado` | empleado autoriza anulacion_venta |
-| 16 | `venta` | `pago_venta` | 1 : 1..N | `id_venta` | venta se cobra con pago_venta |
-| 17 | `metodo_pago` | `pago_venta` | 1 : 0..N | `id_metodo_pago` | metodo_pago es el medio de pago_venta |
-| 18 | `pago_venta` | `efectivo` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla efectivo |
-| 19 | `pago_venta` | `tarjeta` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla tarjeta |
-| 20 | `pago_venta` | `billetera_digital_sip` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla billetera_digital_sip |
-| 21 | `categoria` | `producto` | 1 : 0..N | `id_categoria` | categoria clasifica producto |
-| 22 | `marca` | `producto` | 1 : 0..N | `id_marca` | marca identifica producto |
-| 23 | `unidad_medida` | `producto` | 1 : 0..N | `id_unidad` | unidad_medida mide producto |
-| 24 | `tienda` | `stock` | 1 : 0..N (identificadora) | `id_tienda` | tienda guarda stock |
-| 25 | `producto` | `stock` | 1 : 0..N (identificadora) | `id_producto` | producto se guarda en stock |
-| 26 | `stock` | `movimiento_stock` | 1 : 0..N | `id_tienda, id_producto` | stock cambia con movimiento_stock |
-| 27 | `tipo_movimiento` | `movimiento_stock` | 1 : 0..N | `id_tipo_movimiento` | tipo_movimiento tipifica movimiento_stock |
-| 28 | `empleado` | `movimiento_stock` | 1 : 0..N | `id_empleado` | empleado ejecuta movimiento_stock |
-| 29 | `venta` | `movimiento_stock` | 0..1 : 1..N | `id_venta` | venta origina movimiento_stock |
-| 30 | `traslado_mercaderia` | `movimiento_stock` | 0..1 : 1..N | `id_traslado` | traslado_mercaderia origina movimiento_stock |
-| 31 | `merma` | `movimiento_stock` | 0..1 : 1..N | `id_merma` | merma origina movimiento_stock |
-| 32 | `tienda` | `traslado_mercaderia` | 1 : 0..N | `id_tienda_origen` | tienda envía (origen) traslado_mercaderia |
-| 33 | `tienda` | `traslado_mercaderia` | 1 : 0..N | `id_tienda_destino` | tienda recibe (destino) traslado_mercaderia |
-| 34 | `empleado` | `traslado_mercaderia` | 1 : 0..N | `id_empleado` | empleado registra traslado_mercaderia |
-| 35 | `empleado` | `merma` | 1 : 0..N | `id_empleado` | empleado registra merma |
-| 36 | `stock` | `lote_producto` | 1 : 0..N | `id_tienda, id_producto` | stock se divide en lote_producto |
-| 37 | `lote_producto` | `movimiento_stock` | 0..1 : 0..N | `id_lote` | lote_producto afecta a movimiento_stock |
-| 38 | `caja_turno` | `movimiento_caja` | 1 : 0..N | `id_caja_turno` | caja_turno registra movimiento_caja |
-| 39 | `venta` | `devolucion_venta` | 1 : 0..N | `id_venta` | venta se devuelve con devolucion_venta |
-| 40 | `venta` | `movimiento_caja` | 0..1 : 0..N | `id_venta` | venta se reembolsa con movimiento_caja |
-| 41 | `devolucion_venta` | `detalle_devolucion` | 1 : 1..N | `id_devolucion` | devolucion_venta contiene detalle_devolucion |
-| 42 | `detalle_venta` | `detalle_devolucion` | 1 : 0..N | `id_detalle_venta` | detalle_venta se devuelve en detalle_devolucion |
-| 43 | `devolucion_venta` | `movimiento_stock` | 0..1 : 1..N | `id_devolucion` | devolucion_venta origina movimiento_stock |
+| 14 | `venta` | `solicitud_anulacion` | 1 : 0..N | `id_venta` | venta se anula con solicitud_anulacion |
+| 15 | `empleado` | `solicitud_anulacion` | 1 : 0..N | `id_empleado_solicita` | empleado (cajero) solicita solicitud_anulacion |
+| 16 | `empleado` | `solicitud_anulacion` | 1 : 0..N | `id_empleado_resuelve` | empleado (administrador) resuelve solicitud_anulacion |
+| 17 | `venta` | `pago_venta` | 1 : 1..N | `id_venta` | venta se cobra con pago_venta |
+| 18 | `metodo_pago` | `pago_venta` | 1 : 0..N | `id_metodo_pago` | metodo_pago es el medio de pago_venta |
+| 19 | `pago_venta` | `efectivo` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla efectivo |
+| 20 | `pago_venta` | `tarjeta` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla tarjeta |
+| 21 | `pago_venta` | `billetera_digital_sip` | 1 : 0..1 (identificadora) | `id_pago` | pago_venta detalla billetera_digital_sip |
+| 22 | `categoria` | `producto` | 1 : 0..N | `id_categoria` | categoria clasifica producto |
+| 23 | `marca` | `producto` | 1 : 0..N | `id_marca` | marca identifica producto |
+| 24 | `unidad_medida` | `producto` | 1 : 0..N | `id_unidad` | unidad_medida mide producto |
+| 25 | `tienda` | `stock` | 1 : 0..N (identificadora) | `id_tienda` | tienda guarda stock |
+| 26 | `producto` | `stock` | 1 : 0..N (identificadora) | `id_producto` | producto se guarda en stock |
+| 27 | `stock` | `movimiento_stock` | 1 : 0..N | `id_tienda, id_producto` | stock cambia con movimiento_stock |
+| 28 | `tipo_movimiento` | `movimiento_stock` | 1 : 0..N | `id_tipo_movimiento` | tipo_movimiento tipifica movimiento_stock |
+| 29 | `empleado` | `movimiento_stock` | 1 : 0..N | `id_empleado` | empleado ejecuta movimiento_stock |
+| 30 | `venta` | `movimiento_stock` | 0..1 : 1..N | `id_venta` | venta origina movimiento_stock |
+| 31 | `traslado_mercaderia` | `movimiento_stock` | 0..1 : 1..N | `id_traslado` | traslado_mercaderia origina movimiento_stock |
+| 32 | `merma` | `movimiento_stock` | 0..1 : 1..N | `id_merma` | merma origina movimiento_stock |
+| 33 | `tienda` | `traslado_mercaderia` | 1 : 0..N | `id_tienda_origen` | tienda envía (origen) traslado_mercaderia |
+| 34 | `tienda` | `traslado_mercaderia` | 1 : 0..N | `id_tienda_destino` | tienda recibe (destino) traslado_mercaderia |
+| 35 | `empleado` | `traslado_mercaderia` | 1 : 0..N | `id_empleado` | empleado registra traslado_mercaderia |
+| 36 | `empleado` | `merma` | 1 : 0..N | `id_empleado` | empleado registra merma |
+| 37 | `stock` | `lote_producto` | 1 : 0..N | `id_tienda, id_producto` | stock se divide en lote_producto |
+| 38 | `lote_producto` | `movimiento_stock` | 0..1 : 0..N | `id_lote` | lote_producto afecta a movimiento_stock |
+| 39 | `caja_turno` | `movimiento_caja` | 1 : 0..N | `id_caja_turno` | caja_turno registra movimiento_caja |
+| 40 | `venta` | `devolucion_venta` | 1 : 0..N | `id_venta` | venta se devuelve con devolucion_venta |
+| 41 | `venta` | `movimiento_caja` | 0..1 : 0..N | `id_venta` | venta se reembolsa con movimiento_caja |
+| 42 | `devolucion_venta` | `detalle_devolucion` | 1 : 1..N | `id_devolucion` | devolucion_venta contiene detalle_devolucion |
+| 43 | `detalle_venta` | `detalle_devolucion` | 1 : 0..N | `id_detalle_venta` | detalle_venta se devuelve en detalle_devolucion |
+| 44 | `devolucion_venta` | `movimiento_stock` | 0..1 : 1..N | `id_devolucion` | devolucion_venta origina movimiento_stock |
+| 45 | `empleado` | `turno_trabajo` | 1 : 0..N | `id_empleado` | empleado trabaja en turno_trabajo |
+| 46 | `empleado` | `turno_trabajo` | 1 : 0..N | `id_empleado_programa` | empleado (administrador) programa turno_trabajo |
 
 ## 6. Reglas de negocio
 
@@ -758,13 +793,13 @@ Cada regla indica **donde se garantiza**: **BD** si la base de datos la impide c
 | 9 | Cada cambio de stock deja un **movimiento en el kardex** con el saldo resultante; el stock actual es el ultimo saldo. | Proceso (consulta 28) |
 | 10 | Cada movimiento del kardex tiene **un solo origen**: una venta, un traslado, una merma o una devolucion. | BD: `CHECK` de origen en `movimiento_stock` |
 | 11 | Las **ventas nunca se borran**: estan EMITIDAS o ANULADAS. | BD: `CHECK` de estado (y el usuario de la aplicacion no debe tener permiso `DELETE` sobre `venta`) |
-| 12 | Una venta se anula **como maximo una vez**, con motivo, y la anula un **administrador de la misma tienda**. Al anular, el stock vuelve al inventario y los pagos pasan a ANULADO. | BD: `UNIQUE (id_venta)` en `anulacion_venta`. Proceso: quien anula y la devolucion (consulta 31) |
+| 12 | La anulacion de una venta la **solicita el cajero de esa venta** y la **autoriza o rechaza el administrador de la misma tienda**. Solo puede aprobarse **una vez** por venta. Al aprobarse, la venta pasa a ANULADA, el stock vuelve al inventario y los pagos pasan a ANULADO. | BD: `UNIQUE` sobre la solicitud aprobada, `CHECK` de estado y de que quien resuelve sea distinto de quien solicita. Proceso: quien solicita y quien resuelve (consulta 31) |
 | 13 | Una venta puede tener **varios pagos** y los pagos validos **suman el total**. | Proceso (consulta 24) |
 | 14 | Cada pago tiene el detalle de **su** metodo y de ningun otro (efectivo, tarjeta o Sip). | BD: subtipos con `PK = FK`. Proceso: que el subtipo coincida con el metodo (consulta 32) |
 | 15 | El **cajero vende solo con un turno de caja abierto**, en una caja de **su** tienda. | Proceso (consultas 29 y 30) |
 | 16 | Una caja tiene un solo turno abierto a la vez y un cajero tambien. Un turno abierto no tiene cierre; uno cerrado tiene fecha y monto de cierre. | BD: `CHECK` de estado en `caja_turno`. Proceso: un turno abierto por caja y por cajero |
 | 17 | Un empleado pertenece a **una tienda** y tiene **un rol** (administrador, cajero o almacenero). Ingresa con su DNI, que es unico, y con su contrasena, que se guarda cifrada (hash). | BD: FK a `tienda` y `rol`, `UNIQUE (dni)`, `CHECK` de longitud de la contrasena |
-| 18 | Un traslado va de una tienda **origen** a otra **destino distinta**. Lo registra un almacenero o administrador de la tienda de origen y mueve stock en ambas tiendas. | BD: `CHECK (id_tienda_origen <> id_tienda_destino)`. Proceso: quien lo registra |
+| 18 | Un traslado va de una tienda **origen** a otra **destino distinta**. Lo registra el **administrador** de la tienda de origen y mueve stock en ambas tiendas. | BD: `CHECK (id_tienda_origen <> id_tienda_destino)`. Proceso: quien lo registra (consulta 45) |
 | 19 | La merma la registra un almacenero o administrador y descuenta de **su propia tienda**. | Proceso |
 | 20 | El **precio es unico** para todas las tiendas. La linea de venta guarda una **copia del precio** vigente al vender. | BD: `precio_venta` solo en `producto`; `precio_unitario` en `detalle_venta` |
 | 21 | El **importe de cada linea** es `cantidad x precio_unitario` y el **total** de la venta es la suma de sus importes. | BD: `CHECK` del importe. Proceso: el total (consulta 25) |
@@ -775,6 +810,8 @@ Cada regla indica **donde se garantiza**: **BD** si la base de datos la impide c
 | 26 | La **devolucion** es parcial, sobre una venta **emitida**, por lineas de esa venta y sin superar la cantidad vendida. Su monto es la suma de su detalle, el producto vuelve al stock y el dinero se devuelve en efectivo desde la caja. | BD: `UNIQUE (devolucion, linea)` y `CHECK` de montos. Proceso: el resto (consulta 36) |
 | 27 | Todo **movimiento de caja** ocurre dentro de su turno. Solo el movimiento de tipo DEVOLUCION lleva venta. | BD: `CHECK` de tipo y venta. Proceso: horario del turno y tienda de la venta (consulta 37) |
 | 28 | El **monto de cierre** de un turno es: monto inicial + efectivo cobrado + ingresos - retiros - gastos - devoluciones. | Proceso (consultas 38 y 39) |
+| 29 | El **administrador programa los turnos de trabajo** de los empleados de **su** tienda: un turno por empleado y dia, con hora de salida posterior a la de entrada. | BD: `UNIQUE (id_empleado, fecha)` y `CHECK` de horas. Proceso: que lo programe un administrador de la misma tienda (consulta 43) |
+| 30 | Un cajero abre su turno de caja **solo un dia en que tiene turno de trabajo** y dentro de su horario. | Proceso (consulta 44) |
 
 ## 7. Decisiones de diseno y por que se tomaron
 
@@ -788,7 +825,7 @@ Cada regla indica **donde se garantiza**: **BD** si la base de datos la impide c
 8. **El traslado genera dos movimientos por producto:** una salida en la tienda de origen y una entrada en la de destino.
 9. **`stock` con llave compuesta (tienda + producto).** Es una tabla puente entre dos entidades y no necesita un identificador propio. El kardex apunta a esa pareja.
 10. **La merma no guarda su tienda.** Sale del empleado que la registra (cada empleado pertenece a una sola tienda).
-11. **Anulacion en tabla propia.** Guarda quien, cuando y por que se anulo, sin ensuciar `venta`. La relacion es 1 a 0..1 (`UNIQUE` sobre `id_venta`).
+11. **Anulacion con autorizacion (`solicitud_anulacion`).** Anular una venta tiene dos actores: el cajero la pide y el administrador la autoriza o la rechaza. Por eso se guarda la solicitud con su estado, quien la pidio y quien la resolvio, sin ensuciar `venta`. La relacion es 1 a 0..N: una solicitud rechazada puede repetirse, pero solo una puede quedar APROBADA (columna generada con `UNIQUE`; en MySQL los `NULL` no cuentan como repetidos).
 12. **Cliente minimo.** Es un supermercado: no se registra nombre, direccion ni correo; solo DNI y RUC, ambos opcionales pero al menos uno.
 13. **DNI como usuario y contrasena cifrada.** No hay un nombre de usuario aparte: el DNI es unico y es el usuario. La contrasena se guarda como **hash** (bcrypt o argon2), nunca en texto, en `VARCHAR(255)`: un hash bcrypt mide 60 caracteres, pero argon2 mide cerca de 100 y el algoritmo puede cambiar con los anos. Un `CHECK` exige al menos 60 caracteres, asi que una clave escrita por error en texto (casi siempre mas corta) no entra. La aplicacion crea el hash con `password_hash()` y lo compara con `password_verify()`; la contrasena nunca se muestra ni se devuelve en una consulta.
 14. **Nada se borra.** No se usan `ON DELETE CASCADE`: ventas, pagos y movimientos son historial. Lo que ya no se usa cambia de estado (INACTIVO, DESCONTINUADO, ANULADA).
@@ -799,8 +836,10 @@ Cada regla indica **donde se garantiza**: **BD** si la base de datos la impide c
 19. **Devolucion con cabecera y detalle.** Anular una venta devuelve todo; la devolucion devuelve solo algunas lineas. Cada linea apunta a la linea vendida, de modo que se puede comprobar que no se devuelve mas de lo vendido y a que precio. La venta original sigue EMITIDA.
 20. **Movimientos de caja.** Hasta ahora el cuadre del turno solo consideraba el sencillo inicial y las ventas en efectivo. Ahora se registran los ingresos, retiros, gastos y devoluciones de dinero, y el cierre de caja se puede comprobar con una consulta.
 21. **Sin proveedor ni compras.** No se modelan proveedores. El stock entra por traslados entre tiendas y por los lotes cargados al abrir el inventario. El modelo no limita el numero de tiendas, pero esta pensado para un maximo de 3 sucursales.
+22. **Turnos de trabajo (`turno_trabajo`) separados del turno de caja.** `caja_turno` registra el dinero de una caja; `turno_trabajo` es el horario que el administrador programa a cualquier empleado (cajero, almacenero o el propio administrador). Se separan porque un almacenero trabaja sin abrir caja y un turno de caja siempre cae dentro de un turno de trabajo.
+23. **Tablas del administrador.** Del analisis de los diagramas de referencia solo se tomo lo que hace el administrador: autorizar anulaciones, gestionar inventario y generar reportes (se resuelve con consultas sobre `stock` y el kardex, sin tabla nueva), programar turnos y registrar traslados. Por eso solo se agregaron `solicitud_anulacion` y `turno_trabajo`, y el traslado queda registrado por el administrador. No se creo una tabla `administrador`: es un `rol` de `empleado`, y duplicarlo crearia datos repetidos.
 
 ## 8. Pendientes por confirmar con el profesor
 
-- Que **consultas concretas** debe incluir `consultas.sql` (ahora hay 23 preguntas de negocio y 16 consultas de control).
+- Que **consultas concretas** debe incluir `consultas.sql` (ahora hay 26 preguntas de negocio y 19 consultas de control).
 - Si la **boleta** debe ser una consulta, una vista o un procedimiento almacenado, y que columnas debe mostrar. Hoy `boleta.sql` incluye una vista (`vw_comprobante`) y un procedimiento (`sp_boleta`).

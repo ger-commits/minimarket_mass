@@ -10,10 +10,13 @@
      - los pagos validos de cada venta suman su total;
      - el stock actual = stock inicial + entradas - salidas del kardex;
      - el cajero vende solo con su turno abierto, en la tienda de su caja;
-     - la venta anulada tiene su anulacion, sus pagos ANULADOS y su movimiento de entrada al kardex;
+     - la venta anulada tiene su solicitud APROBADA por el administrador de su tienda, sus pagos ANULADOS y su movimiento de entrada al kardex;
      - los productos con lote (leche evaporada y yogurt) salen del lote que vence primero y
        el stock de la tienda es la suma de sus lotes; un lote vencido solo sale como merma;
      - la devolucion se hace sobre una venta emitida pagada en efectivo, vuelve al stock y su dinero sale de la caja;
+     - la solicitud de anulacion la pide el cajero de la venta y la resuelve el administrador de la misma tienda;
+     - los turnos de trabajo los programa el administrador a empleados de su tienda;
+     - el traslado lo registra el administrador de la tienda de origen;
      - el monto de cierre de cada turno = inicial + efectivo cobrado + ingresos - retiros - gastos - devoluciones.
    DNI, RUC, telefonos, codigos de barras, precios y contrasenas de prueba son inventados.
    ===================================================================== */
@@ -181,9 +184,39 @@ INSERT INTO caja_turno (id_caja_turno, fecha_hora_apertura, monto_inicial, fecha
     (5, '2026-10-19 08:00:00', 100.00, NULL, NULL, 'ABIERTO', 1, 2),
     (6, '2026-10-19 08:00:00', 100.00, NULL, NULL, 'ABIERTO', 3, 5);
 
--- Traslado de Cayma a Yanahuara registrado por el almacenero de Cayma
+-- Turnos de trabajo programados por el administrador de cada tienda (1 = Cayma, 4 = Cerro Colorado, 7 = Yanahuara)
+INSERT INTO turno_trabajo (id_turno_trabajo, fecha, hora_inicio, hora_fin, id_empleado, id_empleado_programa) VALUES
+    (1, '2026-10-17', '08:00:00', '17:00:00', 1, 1),
+    (2, '2026-10-17', '08:00:00', '16:00:00', 2, 1),
+    (3, '2026-10-17', '07:00:00', '15:00:00', 3, 1),
+    (4, '2026-10-17', '08:00:00', '17:00:00', 4, 4),
+    (5, '2026-10-17', '08:00:00', '16:00:00', 5, 4),
+    (6, '2026-10-17', '07:00:00', '15:00:00', 6, 4),
+    (7, '2026-10-17', '08:00:00', '17:00:00', 7, 7),
+    (8, '2026-10-17', '08:00:00', '16:00:00', 8, 7),
+    (9, '2026-10-17', '07:00:00', '15:00:00', 9, 7),
+    (10, '2026-10-18', '08:00:00', '17:00:00', 1, 1),
+    (11, '2026-10-18', '08:00:00', '16:00:00', 2, 1),
+    (12, '2026-10-18', '07:00:00', '15:00:00', 3, 1),
+    (13, '2026-10-18', '08:00:00', '17:00:00', 4, 4),
+    (14, '2026-10-18', '08:00:00', '16:00:00', 5, 4),
+    (15, '2026-10-18', '07:00:00', '15:00:00', 6, 4),
+    (16, '2026-10-18', '08:00:00', '17:00:00', 7, 7),
+    (17, '2026-10-18', '08:00:00', '16:00:00', 8, 7),
+    (18, '2026-10-18', '07:00:00', '15:00:00', 9, 7),
+    (19, '2026-10-19', '08:00:00', '17:00:00', 1, 1),
+    (20, '2026-10-19', '08:00:00', '16:00:00', 2, 1),
+    (21, '2026-10-19', '07:00:00', '15:00:00', 3, 1),
+    (22, '2026-10-19', '08:00:00', '17:00:00', 4, 4),
+    (23, '2026-10-19', '08:00:00', '16:00:00', 5, 4),
+    (24, '2026-10-19', '07:00:00', '15:00:00', 6, 4),
+    (25, '2026-10-19', '08:00:00', '17:00:00', 7, 7),
+    (26, '2026-10-19', '08:00:00', '16:00:00', 8, 7),
+    (27, '2026-10-19', '07:00:00', '15:00:00', 9, 7);
+
+-- Traslado de Cayma a Yanahuara registrado por el administrador de Cayma (origen)
 INSERT INTO traslado_mercaderia (id_traslado, fecha_hora, observacion, id_tienda_origen, id_tienda_destino, id_empleado) VALUES
-    (1, '2026-10-18 10:00:00', 'Reposicion de abarrotes y papa', 1, 3, 3);
+    (1, '2026-10-18 10:00:00', 'Reposicion de abarrotes y papa', 1, 3, 1);
 
 -- Cada merma la registra un almacenero y descuenta de su propia tienda
 INSERT INTO merma (id_merma, fecha_hora, motivo, observacion, id_empleado) VALUES
@@ -233,7 +266,7 @@ INSERT INTO movimiento_caja (id_movimiento_caja, fecha_hora, tipo, monto, motivo
     (5, '2026-10-19 10:30:00', 'RETIRO', 50.00, 'Retiro de seguridad a la caja fuerte', 5, NULL),
     (6, '2026-10-19 12:00:00', 'DEVOLUCION', 1.25, 'Devolucion de dinero: Papa en mal estado', 6, 14);
 
--- ===== NIVEL 6: detalle, anulaciones, pagos y devoluciones =====
+-- ===== NIVEL 6: detalle, solicitudes de anulacion, pagos y devoluciones =====
 
 -- precio_unitario es la copia del precio del producto al vender
 INSERT INTO detalle_venta (id_detalle_venta, cantidad, precio_unitario, importe, id_venta, id_producto) VALUES
@@ -271,9 +304,11 @@ INSERT INTO detalle_venta (id_detalle_venta, cantidad, precio_unitario, importe,
     (32, 2.500, 3.90, 9.75, 14, 9),
     (33, 3.000, 2.50, 7.50, 14, 8);
 
--- La anula un administrador de la misma tienda de la venta
-INSERT INTO anulacion_venta (id_anulacion, fecha_hora, motivo, id_venta, id_empleado) VALUES
-    (1, '2026-10-17 14:20:00', 'Error de producto: el cliente pidio otro articulo', 4, 1);
+-- El cajero pide la anulacion y la resuelve el administrador de su tienda: 1 aprobada (venta 4), 1 rechazada (venta 10), 1 pendiente (venta 14)
+INSERT INTO solicitud_anulacion (id_solicitud, fecha_hora_solicitud, motivo, estado, fecha_hora_resolucion, motivo_rechazo, id_venta, id_empleado_solicita, id_empleado_resuelve) VALUES
+    (1, '2026-10-17 14:10:00', 'Error de producto: el cliente pidio otro articulo', 'APROBADA', '2026-10-17 14:20:00', NULL, 4, 2, 1),
+    (2, '2026-10-18 14:30:00', 'El cliente se arrepintio de la compra', 'RECHAZADA', '2026-10-18 14:45:00', 'La venta no se anula: corresponde una devolucion', 10, 8, 7),
+    (3, '2026-10-19 11:45:00', 'Producto cobrado dos veces', 'PENDIENTE', NULL, NULL, 14, 5, NULL);
 
 -- Pagos multiples: la venta 2, la 8 y la 13 se pagan con dos metodos
 INSERT INTO pago_venta (id_pago, monto_pagado, fecha_hora, estado, id_venta, id_metodo_pago) VALUES

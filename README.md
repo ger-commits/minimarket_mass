@@ -22,7 +22,7 @@ minimarket_mass/
 
 ## Base de datos
 
-La base tiene **30 tablas**. Ejecuta los scripts de `database/` en este orden:
+La base tiene **31 tablas**. Ejecuta los scripts de `database/` en este orden:
 
 1. `schema.sql`: crea la base y las tablas (**borra** `minimarket_mass` si ya existía)
 2. `datos.sql`: datos de prueba
@@ -59,7 +59,9 @@ El login pide DNI y contraseña. Los empleados de prueba están en `datos.sql` (
 
 ## Roles
 
-Administrador, Cajero y Almacenero.
+- **Administrador:** autoriza o rechaza las solicitudes de anulación de ventas de su tienda, programa los turnos de trabajo de sus empleados y registra los traslados de mercadería.
+- **Cajero:** vende con su turno de caja abierto y solicita la anulación de una venta.
+- **Almacenero:** registra las mermas de su tienda y recibe la mercadería.
 
 ## Autor
 
