@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASS | Panel de administración</title>
+<style>
+:root{--red:#d71920;--muted:#697386;--bg:#f4f6f9;--line:#e8ebf0;--green:#178653;--amber:#a86600}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:#20242c}
+.app{display:flex;min-height:100vh}.sidebar{width:245px;background:#20232a;color:#fff;padding:24px 15px;flex-shrink:0}
+.brand{font-size:25px;font-weight:900;letter-spacing:1px;padding:0 13px 27px}.brand span{color:#ff454b}.brand small{display:block;font-size:11px;color:#aeb5c2;font-weight:500;letter-spacing:2px;margin-top:4px}
+.lbl{font-size:10px;text-transform:uppercase;color:#8e97a6;padding:14px 13px 8px;letter-spacing:1.5px}
+.nav a,.nav .off{display:flex;gap:12px;align-items:center;color:#cbd0d8;text-decoration:none;padding:12px 13px;border-radius:9px;margin:3px 0;font-size:14px;cursor:pointer}
+.nav a.active,.nav a:hover{background:var(--red);color:#fff}.nav .off{opacity:.4;cursor:default}
+.foot{font-size:12px;color:#9ca4b2;border-top:1px solid #383c45;margin-top:30px;padding:18px 13px}
+.main{flex:1;min-width:0}.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 30px;gap:14px}
+.crumb{font-size:13px;color:var(--muted)}.crumb strong{color:#20242c}.right{display:flex;align-items:center;gap:16px}
+.right select{padding:9px 11px;border:1px solid #d1d5db;border-radius:8px;font:inherit;font-size:13px}
+.profile{display:flex;align-items:center;gap:10px;font-size:13px}.avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#ffe6e7;color:var(--red);font-weight:800}
+.content{padding:28px 30px;max-width:1400px;margin:auto}.view{display:none}.view.on{display:block}
+.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:24px;flex-wrap:wrap}.heading h1{font-size:26px;margin:0 0 7px}.heading p{margin:0;color:var(--muted);font-size:14px}
+.btn{border:0;border-radius:8px;padding:11px 15px;font-weight:700;font-size:13px;cursor:pointer}.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#b8141a}.btn-light{background:#fff;border:1px solid var(--line);color:#333}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:13px;padding:19px}.stat-top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px}
+.si{height:38px;width:38px;display:grid;place-items:center;border-radius:10px;background:#fff0f0;color:var(--red);font-size:19px}.stat strong{display:block;font-size:28px;margin:15px 0 7px}.stat small{color:var(--muted);font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:18px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:18px}
+.ph{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.ph h2{font-size:16px;margin:0}.pb{padding:18px 20px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 16px}
+.form{display:grid;grid-template-columns:2fr 1.1fr 2fr auto;gap:12px;align-items:end}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+input,select{width:100%;padding:10px 11px;border:1px solid #d1d5db;border-radius:8px;font:inherit;font-size:14px}input:focus,select:focus{outline:2px solid var(--red);border-color:var(--red)}
+.qty{display:flex;gap:4px}.qty button{width:40px;border:1px solid #d1d5db;background:#fff;border-radius:8px;font-size:18px;cursor:pointer}.qty input{text-align:center}
+.hint{font-size:13px;margin-top:12px;min-height:18px;color:var(--muted)}.hint.ok{color:var(--green)}.hint.new{color:var(--amber)}
+.nuevo{display:none;margin-top:12px;padding:14px;background:#fff8e6;border:1px dashed #e0a800;border-radius:10px;grid-template-columns:repeat(3,1fr);gap:12px}.nuevo.show{display:grid}.nuevo p{grid-column:1/-1;margin:0;font-size:13px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th{text-align:left;background:#fafbfc;color:#727b8b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:13px 18px;border-bottom:1px solid var(--line)}
+td{padding:12px 18px;border-bottom:1px solid #eff1f4}tbody tr:last-child td{border-bottom:0}td input{width:92px;padding:6px 8px}
+.prod{display:flex;align-items:center;gap:10px}.pi{width:34px;height:34px;border-radius:8px;background:#f3f4f6;display:grid;place-items:center;font-size:18px}
+.pill{display:inline-block;border-radius:20px;padding:5px 9px;font-size:11px;font-weight:700}.pill.ok{background:#e6f6ed;color:#137548}.pill.low{background:#fff2d9;color:#996000}.pill.out{background:#ffe7e8;color:#b51b22}
+.x{background:none;border:0;color:#b51b22;cursor:pointer;font-weight:700;font-size:12px}.up{color:var(--green);font-weight:800}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:13px}
+.act{display:flex;flex-direction:column;gap:16px}.ar{display:flex;gap:11px;align-items:flex-start}.ai{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#eef7f1;color:var(--green);flex-shrink:0}
+.at{font-size:13px;line-height:1.4;flex:1}.at span{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.low-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #eff1f4;font-size:13px}.low-row:last-child{border:0}
+.foot2{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 20px;flex-wrap:wrap;border-top:1px solid var(--line)}
+.tools{display:flex;gap:9px;flex-wrap:wrap}.tools input{min-width:200px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#20232a;color:#fff;padding:12px 20px;border-radius:9px;transition:.3s;opacity:0;z-index:9;font-size:14px}#toast.show{transform:translateX(-50%);opacity:1}
+.tag{background:#eef2ff;color:#3268c8;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700}
+.dn{color:#b51b22;font-weight:800}.ai.rd{background:#fff0f0;color:var(--red)}
+.hb{margin-bottom:14px}.hl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}.ht{height:8px;background:#f1f3f6;border-radius:6px}.ht i{display:block;height:100%;background:var(--red);border-radius:6px}
+.dw{display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center}.lg div{font-size:13px;margin:7px 0}.lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.form{grid-template-columns:1fr 1fr}.sidebar{width:200px}}
+@media(max-width:700px){.app{flex-direction:column}.sidebar{width:100%;padding:12px}.brand{padding:0 6px 10px}.nav{display:flex;overflow-x:auto;gap:4px}.nav a{white-space:nowrap;margin:0}.lbl,.nav .off,.foot{display:none}
+.topbar{height:auto;padding:12px 16px;flex-wrap:wrap}.content{padding:18px 14px}.form,.nuevo.show{grid-template-columns:1fr}.profile div:last-child{display:none}}
+</style></head>
+<body><div class="app">
+<aside class="sidebar"><div class="brand">MASS<span>.</span><small>PANEL ADMINISTRATIVO</small></div>
+<nav class="nav"><div class="lbl">Principal</div>
+<a data-go="resumen" class="active"><span>▦</span> Resumen</a><a data-go="ingreso"><span>＋</span> Ingresar stock</a><a data-go="inventario"><span>▣</span> Inventario</a><a data-go="ventas"><span>▤</span> Ventas</a><a data-go="movimientos"><span>⇄</span> Movimientos</a>
+<div class="lbl">Próximamente</div><span class="off">♟ Empleados</span><span class="off">▣ Caja</span></nav>
+<div class="foot">Minimarket MASS<br>Solo administrador</div></aside>
+<main class="main"><header class="topbar"><div class="crumb">MASS / <strong id="crumb">Resumen</strong></div>
+<div class="right"><select id="tienda" aria-label="Tienda"></select><div class="profile"><div class="avatar">RQ</div><div><strong>Rosa Quispe</strong><div style="color:#697386;font-size:11px;margin-top:3px">Administrador</div></div></div></div></header>
+<div class="content">
+
+<section class="view on" id="v-resumen">
+<div class="heading"><div><h1>Resumen general</h1><p id="sub1"></p></div><div class="tools"><button class="btn btn-light" data-sim>▶ Simular venta</button><button class="btn btn-red" data-go="ingreso">＋ Ingresar stock</button></div></div>
+<div class="stats" id="stats"></div>
+<div class="layout"><section class="panel"><div class="ph"><h2>Ventas de los últimos 7 días (S/)</h2><span class="tag">Simulado</span></div><div class="pb" id="chVentas"></div></section>
+<section class="panel"><div class="ph"><h2>Ventas por categoría</h2><span class="tag">Simulado</span></div><div class="pb" id="chCat"></div></section></div>
+<div class="layout">
+<section class="panel"><div class="ph"><h2>Productos por reponer</h2></div><div class="pb" id="lowList"></div></section>
+<section class="panel"><div class="ph"><h2>Actividad reciente</h2></div><div class="pb"><div class="act" id="act"></div></div></section>
+</div></section>
+
+<section class="view" id="v-ingreso">
+<div class="heading"><div><h1>Ingresar stock</h1><p>Escribe qué producto entra y cuánto. Tú decides qué se confirma.</p></div></div>
+<section class="panel"><div class="pb">
+<div class="form">
+<div class="field"><label>Producto o código de barras</label><input id="prod" list="dl" placeholder="Escribe el nombre o el código" autocomplete="off"><datalist id="dl"></datalist></div>
+<div class="field"><label>Cantidad <span id="un" style="font-weight:400;color:var(--muted)"></span></label><div class="qty"><button type="button" id="menos">−</button><input id="cant" type="number" min="0" step="1" value="1"><button type="button" id="mas">+</button></div></div>
+<div class="field"><label>Observación (opcional)</label><input id="obs" maxlength="200" placeholder="Ej: pedido del proveedor"></div>
+<button class="btn btn-red" id="agregar" style="height:42px">＋ Agregar a la lista</button></div>
+<div class="hint" id="hint"></div>
+<div class="nuevo" id="nuevo"><p><b>Este producto no está en el catálogo.</b> Completa estos datos para crearlo al confirmar.</p>
+<div class="field"><label>Categoría</label><input id="ncat" list="cats" placeholder="Ej: Bebidas"><datalist id="cats"></datalist></div>
+<div class="field"><label>Precio de venta (S/)</label><input id="npre" type="number" min="0" step="0.01"></div>
+<div class="field"><label>Se vende por</label><select id="npeso"><option value="0">Unidad</option><option value="1">Peso (kg)</option></select></div></div>
+</div></section>
+<section class="panel"><div class="ph"><h2>Lista por ingresar <span id="cnt" style="color:var(--muted);font-weight:400"></span></h2></div><div id="lista"></div></section>
+</section>
+
+<section class="view" id="v-ventas">
+<div class="heading"><div><h1>Ventas <span class="tag">Simulado</span></h1><p>Ventas de ejemplo de los últimos 14 días. Al simular una venta, el stock baja de verdad.</p></div><button class="btn btn-red" data-sim>▶ Simular venta</button></div>
+<div class="layout"><section class="panel"><div class="ph"><h2>Productos más vendidos</h2></div><div class="pb" id="chTop"></div></section>
+<section class="panel"><div class="ph"><h2>Ventas por medio de pago</h2></div><div class="pb" id="chPago"></div></section></div>
+<section class="panel"><div class="ph"><h2>Últimas ventas</h2></div><div class="tw" id="tven"></div></section>
+</section>
+
+<section class="view" id="v-inventario">
+<div class="heading"><div><h1>Inventario</h1><p id="sub2"></p></div></div>
+<section class="panel"><div class="ph"><h2>Niveles de stock</h2><div class="tools"><input id="q" placeholder="Buscar producto o código…"><select id="fil" style="width:auto"><option value="">Todos</option><option value="low">Por reponer</option><option value="out">Agotados</option></select></div></div><div class="tw" id="tinv"></div></section>
+</section>
+
+<section class="view" id="v-movimientos">
+<div class="heading"><div><h1>Movimientos de stock</h1><p>Historial de ingresos de la tienda seleccionada.</p></div>
+<div class="tools"><button class="btn btn-light" id="csv">Exportar CSV</button><button class="btn btn-light" id="reset">Restablecer datos de ejemplo</button></div></div>
+<section class="panel"><div class="tw" id="tmov"></div></section>
+</section>
+
+<p style="font-size:12px;color:var(--muted)">Versión de diseño: las ventas son simuladas y los datos se guardan en este navegador, no en MySQL. Falta conectarlo con el backend PHP.</p>
+</div></main></div>
+<div id="toast"></div>
+
+<script>
+const KEY='mass_admin_v3',T=[{id:1,n:'Mass Cayma'},{id:2,n:'Mass Cerro Colorado'},{id:3,n:'Mass Yanahuara'}];
+const seedP=[
+{id:1,name:'Leche evaporada Gloria entera 400 g',bar:'7750000000011',cat:'Lácteos',w:0,price:4.5},
+{id:2,name:'Arroz Costeño extra 1 kg',bar:'7750000000028',cat:'Abarrotes',w:0,price:5.2},
+{id:3,name:'Gaseosa Inca Kola 1.5 L',bar:'7750000000035',cat:'Bebidas',w:0,price:6.5},
+{id:4,name:'Aceite Primor 1 L',bar:'7750000000042',cat:'Abarrotes',w:0,price:11.9},
+{id:5,name:'Azúcar rubia',bar:'',cat:'Abarrotes',w:1,price:4.2},
+{id:6,name:'Pan de molde Bimbo',bar:'7750000000059',cat:'Panadería',w:0,price:8.9},
+{id:7,name:'Queso fresco',bar:'',cat:'Lácteos',w:1,price:22},
+{id:8,name:'Fideos Don Vittorio 500 g',bar:'7750000000066',cat:'Abarrotes',w:0,price:3.8}];
+const CJ={1:'Luis Caceres Pinto',2:'Cajero Cerro Colorado',3:'Cajero Yanahuara'};
+function genSales(){let a=12345;const r=()=>{a=a+0x6D2B79F5|0;let x=Math.imul(a^a>>>15,1|a);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296};
+ const V=[],now=new Date(),PG=['Efectivo','Efectivo','Yape','Yape','Tarjeta'];
+ T.forEach(z=>{for(let d=13;d>=0;d--){const dt=new Date(now);dt.setDate(now.getDate()-d);const c=7+([0,5,6].includes(dt.getDay())?6:0)+Math.floor(r()*6),mh=d===0?Math.min(21,Math.max(8,now.getHours())):21;
+  for(let i=0;i<c;i++){const b=new Date(dt);b.setHours(8+Math.floor(r()*(mh-7)),Math.floor(r()*60),0,0);if(b>now)continue;
+   const items=[],used=[];for(let j=0,k=1+Math.floor(r()*4);j<k;j++){const p=seedP[Math.floor(r()*seedP.length)];if(used.includes(p.id))continue;used.push(p.id);items.push({pid:p.id,q:p.w?(1+Math.floor(r()*3))/2:1+Math.floor(r()*3),pr:p.price})}
+   V.push({t:z.id,ts:b.getTime(),items,total:Math.round(items.reduce((s,x)=>s+x.q*x.pr,0)*100)/100,pago:PG[Math.floor(r()*5)],cajero:CJ[z.id]})}}});
+ V.sort((x,y)=>x.ts-y.ts);const n={};V.forEach(v=>{n[v.t]=(n[v.t]||0)+1;v.n=n[v.t]});return V.reverse()}
+function seed(){const S={};T.forEach(x=>{S[x.id]={};seedP.forEach(p=>{let c=(p.id*13+x.id*31)%70+4;if((p.id+x.id)%7===0)c=0;S[x.id][p.id]={c,m:p.w?10:20}})});return{P:JSON.parse(JSON.stringify(seedP)),S,M:[],V:genSales()}}
+let D;try{D=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!D||!D.P)D=seed();if(!D.V)D.V=genSales();
+let t=1;const L={1:[],2:[],3:[]};
+const $=i=>document.getElementById(i),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>Math.round(n*1000)/1000;
+const IC={'Lácteos':'🥛','Abarrotes':'🍚','Bebidas':'🥤','Panadería':'🍞'},un=p=>p.w?'kg':'und',tn=()=>T.find(x=>x.id===t).n;
+const find=v=>{v=v.trim().toLowerCase();return v?D.P.find(p=>p.name.toLowerCase()===v||p.bar===v):null};
+const pill=s=>s.c===0?'<span class="pill out">Agotado</span>':s.c<=s.m?'<span class="pill low">Stock bajo</span>':'<span class="pill ok">Disponible</span>';
+function toast(m){const e=$('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2600)}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}render()}
+
+function go(v){document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+ document.querySelectorAll('[data-go].nav a,.nav a').forEach(a=>a.classList.toggle('active',a.dataset.go===v));
+ $('crumb').textContent={resumen:'Resumen',ventas:'Ventas',ingreso:'Ingresar stock',inventario:'Inventario',movimientos:'Movimientos'}[v];window.scrollTo(0,0)}
+
+const day=ts=>new Date(ts).toLocaleDateString('es-PE'),mon=n=>'S/ '+n.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function stats(){const s=D.S[t],vs=D.V.filter(v=>v.t===t),k=day(Date.now()),hoy=vs.filter(v=>day(v.ts)===k),w=vs.filter(v=>v.ts>Date.now()-7*864e5),sum=a=>a.reduce((x,v)=>x+v.total,0),
+ rep=D.P.filter(p=>s[p.id].c<=s[p.id].m).length,ing=D.M.filter(m=>m.t===t&&m.day===k&&!m.sal).length;
+ const c=(a,i,b,s2)=>`<div class="stat"><div class="stat-top">${a}<span class="si">${i}</span></div><strong>${b}</strong><small>${s2}</small></div>`;
+ $('stats').innerHTML=c('Ventas de hoy','▤',mon(sum(hoy)),hoy.length+' ventas (simuladas)')+c('Ventas de 7 días','▥',mon(sum(w)),w.length+' ventas (simuladas)')+c('Por reponer','⚠',rep,'Stock bajo o agotado')+c('Ingresos de hoy','↓',ing,'Confirmados en '+tn());
+ $('sub1').textContent='Inventario y ventas de '+tn();$('sub2').textContent=tn()}
+function resumen(){const s=D.S[t],l=D.P.filter(p=>s[p.id].c<=s[p.id].m);
+ $('lowList').innerHTML=l.length?l.map(p=>`<div class="low-row"><div class="prod"><span class="pi">${IC[p.cat]||'📦'}</span><div>${esc(p.name)}<br><small style="color:var(--muted)">${fmt(s[p.id].c)} ${un(p)} · mínimo ${s[p.id].m}</small></div></div><button class="btn btn-light" data-fill="${p.id}">Ingresar</button></div>`).join(''):'<div class="empty">Todo el stock está por encima del mínimo.</div>';
+ const m=D.M.filter(x=>x.t===t).slice(0,5);
+ $('act').innerHTML=m.length?m.map(x=>`<div class="ar"><div class="ai ${x.sal?'rd':''}">${x.sal?'↑':'↓'}</div><div class="at"><b>${esc(x.type)}</b><br>${esc(x.product)}<span>${esc(x.date)}${x.detail?' · '+esc(x.detail):''}</span></div><b class="${x.sal?'dn':'up'}">${x.sal?'−':'+'}${x.qty}</b></div>`).join(''):'<div class="empty">Aún no hay movimientos.</div>'}
+function lista(){const l=L[t];$('cnt').textContent=l.length?`(${l.length})`:'';
+ if(!l.length){$('lista').innerHTML='<div class="empty">Aún no agregaste productos. Escribe uno arriba para empezar.</div>';return}
+ $('lista').innerHTML=`<div class="tw"><table><thead><tr><th>Producto</th><th>Cantidad que entra</th><th>Stock actual</th><th>Stock nuevo</th><th>Observación</th><th></th></tr></thead><tbody>`+
+ l.map((x,i)=>{const p=x.nuevo||D.P.find(q=>q.id===x.pid),cur=x.nuevo?0:D.S[t][p.id].c;
+ return `<tr><td><div class="prod"><span class="pi">${IC[p.cat]||'📦'}</span>${esc(p.name)} ${x.nuevo?'<span class="pill low">nuevo</span>':''}</div></td><td><input type="number" min="0" step="${p.w?0.001:1}" value="${x.q}" data-q="${i}"> ${un(p)}</td><td>${cur}</td><td class="up">${fmt(cur+x.q)}</td><td>${esc(x.obs||'')}</td><td><button class="x" data-del="${i}">Quitar</button></td></tr>`}).join('')+
+ `</tbody></table></div><div class="foot2"><button class="btn btn-light" id="vaciar">Vaciar lista</button><button class="btn btn-red" id="confirmar">Confirmar ingreso de ${l.length} producto(s)</button></div>`}
+function inv(){const q=$('q').value.toLowerCase(),f=$('fil').value,s=D.S[t];
+ const r=D.P.filter(p=>(p.name+p.bar).toLowerCase().includes(q)&&(!f||(f==='out'?s[p.id].c===0:s[p.id].c<=s[p.id].m)));
+ $('tinv').innerHTML=r.length?`<table><thead><tr><th>Producto</th><th>Código de barras</th><th>Categoría</th><th>Stock actual</th><th>Mínimo</th><th>Precio</th><th>Estado</th></tr></thead><tbody>`+r.map(p=>`<tr><td><div class="prod"><span class="pi">${IC[p.cat]||'📦'}</span>${esc(p.name)}</div></td><td>${esc(p.bar||'—')}</td><td>${esc(p.cat)}</td><td>${fmt(s[p.id].c)} ${un(p)}</td><td>${s[p.id].m}</td><td>S/ ${p.price.toFixed(2)}</td><td>${pill(s[p.id])}</td></tr>`).join('')+'</tbody></table>':'<div class="empty">No hay productos con ese filtro.</div>'}
+function mov(){const m=D.M.filter(x=>x.t===t);
+ $('tmov').innerHTML=m.length?`<table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Producto</th><th>Cantidad</th><th>Saldo</th><th>Detalle</th></tr></thead><tbody>`+m.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.type)}</td><td>${esc(x.product)}</td><td class="${x.sal?'dn':'up'}">${x.sal?'−':'+'}${x.qty}</td><td>${x.saldo}</td><td>${esc(x.detail||'')}</td></tr>`).join('')+'</tbody></table>':'<div class="empty">Todavía no hay movimientos en esta tienda.</div>'}
+function lists(){$('dl').innerHTML=D.P.map(p=>`<option value="${esc(p.name)}">`).join('');$('cats').innerHTML=[...new Set(D.P.map(p=>p.cat))].map(c=>`<option value="${esc(c)}">`).join('')}
+function render(){stats();resumen();lista();inv();mov();lists();charts();ventas()}
+
+function hint(){const v=$('prod').value.trim(),p=find(v),h=$('hint');$('nuevo').classList.toggle('show',!!v&&!p);
+ if(!v){h.className='hint';h.textContent='';$('un').textContent='';return}
+ if(p){const s=D.S[t][p.id];h.className='hint ok';h.textContent=`Stock actual en ${tn()}: ${fmt(s.c)} ${un(p)} (mínimo ${s.m})`;$('un').textContent='('+un(p)+')';$('cant').step=p.w?0.001:1}
+ else{h.className='hint new';h.textContent='Producto nuevo: se creará al confirmar el ingreso.';$('un').textContent=''}}
+function agregar(){const v=$('prod').value.trim(),q=parseFloat($('cant').value),obs=$('obs').value.trim(),p=find(v);
+ if(!v)return toast('Escribe el producto');if(!(q>0))return toast('La cantidad debe ser mayor a 0');
+ if(p&&!p.w&&!Number.isInteger(q))return toast('Este producto se cuenta por unidades enteras');
+ if(p){const it=L[t].find(x=>x.pid===p.id);if(it){it.q=fmt(it.q+q);if(obs)it.obs=obs}else L[t].push({pid:p.id,q,obs})}
+ else{const pr=parseFloat($('npre').value),cat=$('ncat').value.trim(),w=+$('npeso').value;
+  if(!cat||!(pr>0))return toast('Completa categoría y precio del producto nuevo');
+  if(!w&&!Number.isInteger(q))return toast('Este producto se cuenta por unidades enteras');
+  const ex=L[t].find(x=>x.nuevo&&x.nuevo.name.toLowerCase()===v.toLowerCase());
+  if(ex)ex.q=fmt(ex.q+q);else L[t].push({q,obs,nuevo:{name:v,bar:'',cat,w,price:pr}})}
+ ['prod','obs','npre','ncat'].forEach(i=>$(i).value='');$('cant').value=1;hint();render();$('prod').focus();toast('Agregado a la lista')}
+function confirmar(){const now=new Date(),n=L[t].length;
+ L[t].forEach(x=>{let p=x.nuevo;
+  if(p){p.id=Math.max(...D.P.map(q=>q.id))+1;D.P.push(p);T.forEach(z=>D.S[z.id][p.id]={c:0,m:p.w?10:20})}else p=D.P.find(q=>q.id===x.pid);
+  const s=D.S[t][p.id];s.c=fmt(s.c+x.q);
+  D.M.unshift({t,day:now.toLocaleDateString('es-PE'),date:now.toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}),type:'Entrada de mercadería',product:p.name,qty:x.q,saldo:s.c,detail:x.obs||''})});
+ L[t]=[];save();toast(`Ingreso confirmado: ${n} producto(s)`)}
+
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go);
+ const f=e.target.closest('[data-fill]');if(f){go('ingreso');$('prod').value=D.P.find(p=>p.id==f.dataset.fill).name;hint();$('cant').focus()}
+ if(e.target.dataset.del!==undefined){L[t].splice(+e.target.dataset.del,1);render()}
+ if(e.target.id==='vaciar'){L[t]=[];render()}if(e.target.id==='confirmar')confirmar()});
+document.addEventListener('change',e=>{if(e.target.dataset.q!==undefined){const v=parseFloat(e.target.value);if(v>0)L[t][+e.target.dataset.q].q=v;render()}});
+$('tienda').innerHTML=T.map(x=>`<option value="${x.id}">${x.n}</option>`).join('');
+$('tienda').onchange=e=>{t=+e.target.value;hint();render()};
+$('prod').oninput=hint;$('agregar').onclick=agregar;
+['prod','cant','obs'].forEach(i=>$(i).onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();agregar()}});
+$('mas').onclick=()=>{const p=find($('prod').value);$('cant').value=fmt((+$('cant').value||0)+(p&&p.w?0.5:1))};
+$('menos').onclick=()=>{const p=find($('prod').value);$('cant').value=Math.max(0,fmt((+$('cant').value||0)-(p&&p.w?0.5:1)))};
+$('q').oninput=$('fil').onchange=inv;
+$('reset').onclick=()=>{if(confirm('¿Borrar los cambios y volver a los datos de ejemplo?')){D=seed();T.forEach(x=>L[x.id]=[]);save();toast('Datos restablecidos')}};
+$('csv').onclick=()=>{const r=[['Fecha','Movimiento','Producto','Cantidad','Saldo','Detalle'],...D.M.filter(x=>x.t===t).map(x=>[x.date,x.type,x.product,x.qty,x.saldo,x.detail])];
+ const c=r.map(a=>a.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'),a=document.createElement('a');
+ a.href=URL.createObjectURL(new Blob(['\ufeff'+c],{type:'text/csv;charset=utf-8;'}));a.download='movimientos_mass.csv';a.click()};
+const COL=['#d71920','#20232a','#3268c8','#e8a33d','#178653'];
+function bars(a){const mx=Math.max(...a.map(x=>x.v),1);return '<svg viewBox="0 0 420 210" width="100%" role="img" aria-label="Ventas por día">'+[0,.5,1].map(f=>`<line x1="0" x2="420" y1="${170-150*f}" y2="${170-150*f}" stroke="#eef0f3"/>`).join('')+a.map((x,i)=>{const h=150*x.v/mx,X=14+i*58;return `<rect x="${X}" y="${170-h}" width="36" height="${h}" rx="5" fill="${i===a.length-1?'#d71920':'#f3a3a5'}"/><text x="${X+18}" y="${164-h}" text-anchor="middle" font-size="10" fill="#697386">${Math.round(x.v)}</text><text x="${X+18}" y="192" text-anchor="middle" font-size="11" fill="#697386">${x.l}</text>`}).join('')+'</svg>'}
+function donut(a){const tot=a.reduce((s,x)=>s+x.v,0)||1;let o=0;return '<div class="dw"><svg viewBox="0 0 100 100" width="150" height="150"><g transform="rotate(-90 50 50)">'+a.map((x,i)=>{const l=x.v/tot*251.33,e=`<circle cx="50" cy="50" r="40" fill="none" stroke="${COL[i%5]}" stroke-width="16" stroke-dasharray="${l} ${251.33-l}" stroke-dashoffset="${-o}"/>`;o+=l;return e}).join('')+'</g></svg><div class="lg">'+a.map((x,i)=>`<div><i style="background:${COL[i%5]}"></i>${esc(x.l)} <b>${Math.round(x.v/tot*100)}%</b></div>`).join('')+'</div></div>'}
+function hbars(a,f){const mx=Math.max(...a.map(x=>x.v),1);return a.map(x=>`<div class="hb"><div class="hl"><span>${esc(x.l)}</span><b>${f(x.v)}</b></div><div class="ht"><i style="width:${x.v/mx*100}%"></i></div></div>`).join('')||'<div class="empty">Sin datos</div>'}
+const pn=id=>D.P.find(p=>p.id===id)||{name:'?',cat:'Otros'};
+function charts(){const vs=D.V.filter(v=>v.t===t),d7=[];
+ for(let i=6;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);const k=day(dt);d7.push({l:dt.toLocaleDateString('es-PE',{weekday:'short'}).replace('.',''),v:vs.filter(v=>day(v.ts)===k).reduce((s,v)=>s+v.total,0)})}
+ $('chVentas').innerHTML=bars(d7);
+ const cat={},top={},pg={};
+ vs.filter(v=>v.ts>Date.now()-7*864e5).forEach(v=>v.items.forEach(x=>{const c=pn(x.pid).cat;cat[c]=(cat[c]||0)+x.q*x.pr}));
+ vs.forEach(v=>{v.items.forEach(x=>{const m=pn(x.pid).name;top[m]=(top[m]||0)+x.q});pg[v.pago]=(pg[v.pago]||0)+v.total});
+ const ord=o=>Object.entries(o).map(([l,v])=>({l,v})).sort((a,b)=>b.v-a.v);
+ $('chCat').innerHTML=donut(ord(cat));$('chTop').innerHTML=hbars(ord(top).slice(0,5),v=>fmt(v)+' vendidos');$('chPago').innerHTML=hbars(ord(pg),mon)}
+function ventas(){const vs=D.V.filter(v=>v.t===t).slice(0,25);
+ $('tven').innerHTML=vs.length?'<table><thead><tr><th>Comprobante</th><th>Fecha y hora</th><th>Cajero</th><th>Productos</th><th>Total</th><th>Pago</th></tr></thead><tbody>'+vs.map(v=>`<tr><td>B00${v.t}-${String(v.n).padStart(4,'0')}</td><td>${new Date(v.ts).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(v.cajero)}</td><td>${v.items.map(x=>esc(pn(x.pid).name.split(' ').slice(0,2).join(' '))+' ×'+x.q).join(', ')}</td><td><b>${mon(v.total)}</b></td><td><span class="pill ok">${v.pago}</span></td></tr>`).join('')+'</tbody></table>':'<div class="empty">Sin ventas.</div>'}
+function simular(){const s=D.S[t],pool=D.P.filter(p=>s[p.id].c>=(p.w?0.5:1)),now=new Date();if(!pool.length)return toast('No hay stock para vender');
+ const items=pool.sort(()=>Math.random()-.5).slice(0,1+Math.floor(Math.random()*3)).map(p=>{const q=p.w?0.5:1+Math.floor(Math.random()*Math.min(3,s[p.id].c));s[p.id].c=fmt(s[p.id].c-q);return{pid:p.id,q,pr:p.price}});
+ const n=Math.max(0,...D.V.filter(v=>v.t===t).map(v=>v.n))+1,total=Math.round(items.reduce((a,x)=>a+x.q*x.pr,0)*100)/100;
+ D.V.unshift({t,ts:now.getTime(),items,total,pago:['Efectivo','Yape','Tarjeta'][Math.floor(Math.random()*3)],cajero:CJ[t],n});
+ items.forEach(x=>D.M.unshift({t,day:day(now),date:now.toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}),type:'Venta',product:pn(x.pid).name,qty:x.q,saldo:s[x.pid].c,detail:`Comprobante B00${t}-${String(n).padStart(4,'0')}`,sal:1}));
+ save();toast('Venta simulada: '+mon(total))}
+document.addEventListener('click',e=>{if(e.target.closest('[data-sim]'))simular()});
+render();
+</script>
+</body></html>
