@@ -3,7 +3,6 @@ var u=document.getElementById('usr'),p=document.getElementById('pwd'),go=documen
 function check(){go.disabled=!(u.value.trim().length>=3&&p.value.length>=4);}
 u.addEventListener('input',check);p.addEventListener('input',check);
 eye.addEventListener('click',function(){var s=p.type==='password';p.type=s?'text':'password';eye.textContent=s?'Ocultar':'Mostrar';eye.setAttribute('aria-pressed',s);});
-document.getElementById('login').addEventListener('submit',function(e){e.preventDefault();/* Aquí va la validación con el backend */});
 
 var D=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 function p2(n){return n<10?'0'+n:n;}
