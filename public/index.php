@@ -10,5 +10,5 @@ switch ($ruta) {
     case 'productos': (new ProductoController())->lista(); break;
     case 'stock':     (new StockController())->lista((int)($_GET['tienda'] ?? 1)); break;
     case 'boleta':    (new VentaController())->boleta($_GET['serie'] ?? 'B001', (int)($_GET['n'] ?? 1)); break;
-    default:          $_SERVER['REQUEST_METHOD'] === 'POST' ? (new AuthController())->login() : require __DIR__ . '/../views/auth/login.php';
+    default:          $_SERVER['REQUEST_METHOD'] === 'POST' ? (new AuthController())->login() : (new AuthController())->mostrar();
 }
