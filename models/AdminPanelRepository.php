@@ -47,4 +47,39 @@ class AdminPanelRepository
         $st->execute([$idTienda]);
         return $st->fetchAll();
     }
+
+    // Totales de hoy y de ayer de la tienda (solo ventas emitidas, sin anuladas)
+    public function ventasDelDia(int $idTienda, string $cuando): array
+    {
+        $fecha = $cuando === 'ayer' ? 'DATE_SUB(CURDATE(), INTERVAL 1 DAY)' : 'CURDATE()';
+        $st = Database::conectar()->prepare(
+            "SELECT COALESCE(SUM(v.total), 0) AS total, COUNT(*) AS transacciones
+               FROM venta v
+               JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE s.id_tienda = ? AND v.estado = 'EMITIDA' AND DATE(v.fecha_hora) = $fecha"
+        );
+        $st->execute([$idTienda]);
+        return $st->fetch();
+    }
+
+    // Conteos generales: productos activos y productos con stock bajo o agotado en la tienda
+    public function conteosResumen(int $idTienda): array
+    {
+        $pdo = Database::conectar();
+        $productos = (int)$pdo->query("SELECT COUNT(*) FROM producto WHERE estado = 'ACTIVO'")->fetchColumn();
+        $st = $pdo->prepare("SELECT COUNT(*) FROM stock WHERE id_tienda = ? AND cantidad_actual <= stock_minimo");
+        $st->execute([$idTienda]);
+        return ['productos' => $productos, 'alertas' => (int)$st->fetchColumn()];
+    }
+
+    // Las tres tiendas con su estado y su distrito
+    public function tiendas(): array
+    {
+        return Database::conectar()->query(
+            "SELECT t.nombre_tienda, t.estado, t.direccion, d.nombre_distrito
+               FROM tienda t
+               JOIN distrito d ON d.id_distrito = t.id_distrito
+              ORDER BY t.id_tienda"
+        )->fetchAll();
+    }
 }

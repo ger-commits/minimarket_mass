@@ -94,6 +94,40 @@ class AdminController
         $this->json(['ok' => true, 'datos' => $datos]);
     }
 
+    public function apiResumen(): void
+    {
+        $admin = $this->adminActivo();
+        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
+        $repo = new AdminPanelRepository();
+        $hoy = $repo->ventasDelDia($admin->idTienda, 'hoy');
+        $ayer = $repo->ventasDelDia($admin->idTienda, 'ayer');
+        $conteos = $repo->conteosResumen($admin->idTienda);
+        $this->json(['ok' => true, 'datos' => [
+            'ventas_hoy'      => number_format((float)$hoy['total'], 2, '.', ''),
+            'transacciones'   => (int)$hoy['transacciones'],
+            'ventas_ayer'     => number_format((float)$ayer['total'], 2, '.', ''),
+            'trans_ayer'      => (int)$ayer['transacciones'],
+            'productos'       => $conteos['productos'],
+            'alertas'         => $conteos['alertas'],
+        ]]);
+    }
+
+    public function apiTiendas(): void
+    {
+        $admin = $this->adminActivo();
+        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
+        $filas = (new AdminPanelRepository())->tiendas();
+        $datos = array_map(function ($r) {
+            return [
+                'nombre'   => $r['nombre_tienda'],
+                'estado'   => $r['estado'] === 'ACTIVA' ? 'Activa' : 'Inactiva',
+                'clase'    => $r['estado'] === 'ACTIVA' ? 'ok' : 'bad',
+                'distrito' => $r['nombre_distrito'],
+            ];
+        }, $filas);
+        $this->json(['ok' => true, 'datos' => $datos]);
+    }
+
     // Devuelve el administrador de la sesión o null si no lo es
     private function adminActivo(): ?Administrador
     {

@@ -19,8 +19,10 @@ switch ($ruta) {
     case 'admin_login':
         $_SERVER['REQUEST_METHOD'] === 'POST' ? (new AdminController())->login() : (new AdminController())->mostrarLogin();
         break;
-    case 'admin_panel':       (new AdminController())->panel(); break;
+    case 'admin_panel': (new AdminController())->panel(); break;
     case 'admin_api_ventas':  (new AdminController())->apiVentas(); break;
     case 'admin_api_personal': (new AdminController())->apiPersonal(); break;
+    case 'admin_api_resumen': (new AdminController())->apiResumen(); break;
+    case 'admin_api_tiendas': (new AdminController())->apiTiendas(); break;
     default:          $_SERVER['REQUEST_METHOD'] === 'POST' ? (new AuthController())->login() : (new AuthController())->mostrar();
 }
