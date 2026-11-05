@@ -281,6 +281,16 @@ CREATE TABLE merma (
 ) ENGINE=InnoDB;
 
 -- Lotes de productos perecibles en cada tienda: codigo de lote, fecha de vencimiento y cantidad que queda.
+-- Cabecera de ingresos de mercadería registrados por almacén (compras/recepción externa).
+CREATE TABLE ingreso_mercaderia (
+    id_ingreso  INT UNSIGNED       NOT NULL AUTO_INCREMENT,
+    fecha_hora  DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    observacion VARCHAR(200)       NULL,
+    id_empleado MEDIUMINT UNSIGNED NOT NULL,
+    CONSTRAINT pk_ingreso PRIMARY KEY (id_ingreso),
+    CONSTRAINT fk_ingreso_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
+) ENGINE=InnoDB;
+
 CREATE TABLE lote_producto (
     id_lote           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     codigo_lote       VARCHAR(20)       NOT NULL,
@@ -467,7 +477,7 @@ CREATE TABLE detalle_devolucion (
     CONSTRAINT fk_detdev_detalle FOREIGN KEY (id_detalle_venta) REFERENCES detalle_venta (id_detalle_venta)
 ) ENGINE=InnoDB;
 
--- Kardex: cada cambio de stock, con un unico origen (venta, traslado, merma o devolucion).
+-- Kardex: cada cambio de stock tiene un único origen (venta, traslado, merma, devolución o ingreso).
 CREATE TABLE movimiento_stock (
     id_movimiento      BIGINT UNSIGNED    NOT NULL AUTO_INCREMENT,
     fecha_hora         DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -482,12 +492,13 @@ CREATE TABLE movimiento_stock (
     id_traslado        INT UNSIGNED       NULL,                  -- origen (uno solo)
     id_merma           INT UNSIGNED       NULL,                  -- origen (uno solo)
     id_devolucion      INT UNSIGNED       NULL,                  -- origen (uno solo)
+    id_ingreso         INT UNSIGNED      NULL,                  -- ingreso de mercadería (uno solo)
     id_lote            INT UNSIGNED       NULL,                  -- lote afectado (solo productos con lote)
     CONSTRAINT pk_movimiento PRIMARY KEY (id_movimiento),
     CONSTRAINT ck_movimiento_cantidad CHECK (cantidad > 0),
     CONSTRAINT ck_movimiento_saldo CHECK (stock_nuevo >= 0),
     CONSTRAINT ck_movimiento_origen CHECK (
-        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) = 1),
+        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) + (id_ingreso IS NOT NULL) = 1),
     CONSTRAINT fk_movimiento_stock FOREIGN KEY (id_tienda, id_producto) REFERENCES stock (id_tienda, id_producto),
     CONSTRAINT fk_movimiento_tipo FOREIGN KEY (id_tipo_movimiento) REFERENCES tipo_movimiento (id_tipo_movimiento),
     CONSTRAINT fk_movimiento_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
@@ -495,5 +506,6 @@ CREATE TABLE movimiento_stock (
     CONSTRAINT fk_movimiento_traslado FOREIGN KEY (id_traslado) REFERENCES traslado_mercaderia (id_traslado),
     CONSTRAINT fk_movimiento_merma FOREIGN KEY (id_merma) REFERENCES merma (id_merma),
     CONSTRAINT fk_movimiento_devolucion FOREIGN KEY (id_devolucion) REFERENCES devolucion_venta (id_devolucion),
+    CONSTRAINT fk_movimiento_ingreso FOREIGN KEY (id_ingreso) REFERENCES ingreso_mercaderia (id_ingreso),
     CONSTRAINT fk_movimiento_lote FOREIGN KEY (id_lote) REFERENCES lote_producto (id_lote)
 ) ENGINE=InnoDB;

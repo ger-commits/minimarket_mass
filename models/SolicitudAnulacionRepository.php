@@ -1,7 +1,12 @@
 <?php
 // M: solicitudes de anulación. El CAJERO de la venta la solicita; el ADMINISTRADOR de la misma tienda la aprueba o la rechaza.
-// Al aprobar, en una sola transacción: la venta pasa a ANULADA, los pagos a ANULADO y el stock vuelve al inventario
-// (un movimiento de ANULACION DE VENTA en el kardex por cada producto vendido, con su lote si lo tenía).
+// Al aprobar, en UNA sola transacción (todo o nada):
+//   1. la solicitud pasa a APROBADA y la venta a ANULADA, y sus pagos a ANULADO;
+//   2. el stock vuelve al inventario (un movimiento de ANULACION DE VENTA en el kardex por cada movimiento de la venta, con su lote);
+//   3. se emite la nota de crédito (serie BC.. para boletas, FC.. para facturas);
+//   4. se registra la anulación en el Sistema central (tabla registro_anulacion_central).
+// Si la venta se pagó en efectivo en un turno de caja ya cerrado, el dinero devuelto sale del turno abierto del cajero
+// (movimiento_caja de tipo DEVOLUCION). Requiere las tablas de database/anulacion.sql.
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Administrador.php';
 require_once __DIR__ . '/SolicitudAnulacion.php';
@@ -10,6 +15,7 @@ class SolicitudAnulacionRepository
 {
     private const TIPO_VENTA = 1;
     private const TIPO_ANULACION = 2;
+    private const METODO_EFECTIVO = 1;
 
     private PDO $pdo;
 
@@ -25,45 +31,74 @@ class SolicitudAnulacionRepository
         if ($motivo === '' || mb_strlen($motivo) > 150) {
             throw new InvalidArgumentException('El motivo es obligatorio (máximo 150 caracteres).');
         }
-        $st = $this->pdo->prepare(
-            'SELECT v.estado, ct.id_empleado AS id_cajero
-               FROM venta v JOIN caja_turno ct ON ct.id_caja_turno = v.id_caja_turno
-              WHERE v.id_venta = ?'
-        );
-        $st->execute([$idVenta]);
-        $venta = $st->fetch();
-        if (!$venta) throw new RuntimeException('La venta no existe.');
-        if ($venta['estado'] !== 'EMITIDA') throw new RuntimeException('Solo se puede anular una venta emitida.');
-        if ((int)$venta['id_cajero'] !== $idCajero) {
-            throw new RuntimeException('Solo el cajero de la venta puede solicitar su anulación.');
-        }
-        $st = $this->pdo->prepare("SELECT COUNT(*) FROM solicitud_anulacion WHERE id_venta = ? AND estado = 'PENDIENTE'");
-        $st->execute([$idVenta]);
-        if ((int)$st->fetchColumn() > 0) throw new RuntimeException('La venta ya tiene una solicitud pendiente.');
+        return $this->transaccion(function () use ($idVenta, $idCajero, $motivo) {
+            $bloqueo = $this->bloqueo();
+            $st = $this->pdo->prepare(
+                'SELECT v.estado, ct.id_empleado AS id_cajero
+                   FROM venta v JOIN caja_turno ct ON ct.id_caja_turno = v.id_caja_turno
+                  WHERE v.id_venta = ?' . $bloqueo
+            );
+            $st->execute([$idVenta]);
+            $venta = $st->fetch();
+            if (!$venta) throw new RuntimeException('La venta no existe.');
+            if ($venta['estado'] !== 'EMITIDA') throw new RuntimeException('Solo se puede anular una venta emitida.');
+            if ((int)$venta['id_cajero'] !== $idCajero) {
+                throw new RuntimeException('Solo el cajero de la venta puede solicitar su anulación.');
+            }
+            $st = $this->pdo->prepare("SELECT COUNT(*) FROM solicitud_anulacion WHERE id_venta = ? AND estado = 'PENDIENTE'");
+            $st->execute([$idVenta]);
+            if ((int)$st->fetchColumn() > 0) throw new RuntimeException('La venta ya tiene una solicitud pendiente.');
 
-        $st = $this->pdo->prepare(
-            "INSERT INTO solicitud_anulacion (fecha_hora_solicitud, motivo, estado, id_venta, id_empleado_solicita)
-             VALUES (?, ?, 'PENDIENTE', ?, ?)"
-        );
-        $st->execute([date('Y-m-d H:i:s'), $motivo, $idVenta, $idCajero]);
-        return (int)$this->pdo->lastInsertId();
+            $st = $this->pdo->prepare(
+                "INSERT INTO solicitud_anulacion (fecha_hora_solicitud, motivo, estado, id_venta, id_empleado_solicita)
+                 VALUES (NOW(), ?, 'PENDIENTE', ?, ?)"
+            );
+            $st->execute([$motivo, $idVenta, $idCajero]);
+            return (int)$this->pdo->lastInsertId();
+        });
     }
 
     // Bandeja del administrador: solicitudes pendientes de ventas de su tienda.
     public function pendientesDeTienda(int $idTienda): array
     {
-        $st = $this->pdo->prepare(
-            "SELECT sa.id_solicitud, sa.fecha_hora_solicitud, s.serie, v.numero_correlativo, v.total, sa.motivo,
-                    CONCAT(e.nombres, ' ', e.apellidos) AS solicitante
-               FROM solicitud_anulacion sa
-               JOIN venta v             ON v.id_venta = sa.id_venta
-               JOIN serie_comprobante s ON s.id_serie = v.id_serie
-               JOIN empleado e          ON e.id_empleado = sa.id_empleado_solicita
-              WHERE sa.estado = 'PENDIENTE' AND s.id_tienda = ?
-              ORDER BY sa.fecha_hora_solicitud"
-        );
+        $st = $this->pdo->prepare($this->consultaBandeja() .
+            " WHERE sa.estado = 'PENDIENTE' AND s.id_tienda = ? ORDER BY sa.fecha_hora_solicitud");
         $st->execute([$idTienda]);
         return $st->fetchAll();
+    }
+
+    // Últimas solicitudes ya resueltas (aprobadas o rechazadas) de la tienda.
+    public function resueltasDeTienda(int $idTienda, int $limite = 10): array
+    {
+        $st = $this->pdo->prepare($this->consultaBandeja() .
+            " WHERE sa.estado <> 'PENDIENTE' AND s.id_tienda = ?
+              ORDER BY sa.fecha_hora_resolucion DESC, sa.id_solicitud DESC LIMIT " . (int)$limite);
+        $st->execute([$idTienda]);
+        return $st->fetchAll();
+    }
+
+    private function consultaBandeja(): string
+    {
+        return "SELECT sa.id_solicitud, sa.fecha_hora_solicitud, sa.fecha_hora_resolucion, sa.estado, sa.motivo, sa.motivo_rechazo,
+                       sa.id_venta, s.serie, v.numero_correlativo, v.total, v.fecha_hora AS fecha_venta,
+                       tc.nombre_comprobante AS tipo, c.numero_caja,
+                       CONCAT(e.nombres, ' ', e.apellidos) AS solicitante,
+                       CONCAT(adm.nombres, ' ', adm.apellidos) AS resuelto_por,
+                       CONCAT(snc.serie, '-', LPAD(nc.numero_correlativo, 6, '0')) AS nota_credito,
+                       (SELECT COUNT(*) FROM detalle_venta d WHERE d.id_venta = v.id_venta) AS lineas,
+                       (SELECT GROUP_CONCAT(DISTINCT mp.nombre_metodo ORDER BY mp.id_metodo_pago SEPARATOR ', ')
+                          FROM pago_venta pv JOIN metodo_pago mp ON mp.id_metodo_pago = pv.id_metodo_pago
+                         WHERE pv.id_venta = v.id_venta) AS medios
+                  FROM solicitud_anulacion sa
+                  JOIN venta v             ON v.id_venta = sa.id_venta
+                  JOIN serie_comprobante s ON s.id_serie = v.id_serie
+                  JOIN tipo_comprobante tc ON tc.id_tipo_comprobante = s.id_tipo_comprobante
+                  JOIN caja_turno ct       ON ct.id_caja_turno = v.id_caja_turno
+                  JOIN caja c              ON c.id_caja = ct.id_caja
+                  JOIN empleado e          ON e.id_empleado = sa.id_empleado_solicita
+                  LEFT JOIN empleado adm   ON adm.id_empleado = sa.id_empleado_resuelve
+                  LEFT JOIN nota_credito nc ON nc.id_solicitud = sa.id_solicitud
+                  LEFT JOIN serie_nota_credito snc ON snc.id_serie_nc = nc.id_serie_nc";
     }
 
     public function buscar(int $idSolicitud): ?SolicitudAnulacion
@@ -71,16 +106,77 @@ class SolicitudAnulacionRepository
         $st = $this->pdo->prepare('SELECT * FROM solicitud_anulacion WHERE id_solicitud = ?');
         $st->execute([$idSolicitud]);
         $f = $st->fetch();
-        return $f ? SolicitudAnulacion::desdeFila($f) : null;
+        return $f ? SolicitudAnulacion::desde($f) : null;
     }
 
-    // El administrador AUTORIZA la anulación.
-    public function aprobar(int $idSolicitud, Administrador $admin): void
+    // Lo que ve el CAJERO mientras espera: estado de su solicitud y, si fue aprobada, lo que hizo el sistema.
+    public function estadoParaCajero(int $idSolicitud, int $idCajero): ?array
     {
-        $this->transaccion(function () use ($idSolicitud, $admin) {
-            [$sol, $tiendaVenta] = $this->cargarPendiente($idSolicitud, $admin);
-            $ahora = date('Y-m-d H:i:s');
+        $st = $this->pdo->prepare(
+            "SELECT sa.id_solicitud, sa.estado, sa.motivo_rechazo, sa.fecha_hora_resolucion, sa.id_venta,
+                    v.estado AS estado_venta, nc.monto AS monto_nota,
+                    CONCAT(snc.serie, '-', LPAD(nc.numero_correlativo, 6, '0')) AS nota_credito,
+                    rc.codigo_central,
+                    CONCAT(adm.nombres, ' ', adm.apellidos) AS administrador,
+                    (SELECT COUNT(*) FROM movimiento_stock ms
+                      WHERE ms.id_venta = sa.id_venta AND ms.id_tipo_movimiento = ?) AS movimientos_stock
+               FROM solicitud_anulacion sa
+               JOIN venta v ON v.id_venta = sa.id_venta
+               LEFT JOIN empleado adm ON adm.id_empleado = sa.id_empleado_resuelve
+               LEFT JOIN nota_credito nc ON nc.id_solicitud = sa.id_solicitud
+               LEFT JOIN serie_nota_credito snc ON snc.id_serie_nc = nc.id_serie_nc
+               LEFT JOIN registro_anulacion_central rc ON rc.id_solicitud = sa.id_solicitud
+              WHERE sa.id_solicitud = ? AND sa.id_empleado_solicita = ?"
+        );
+        $st->execute([self::TIPO_ANULACION, $idSolicitud, $idCajero]);
+        return $st->fetch() ?: null;
+    }
 
+    // El administrador AUTORIZA la anulación. Devuelve la nota de crédito y el código del Sistema central.
+    public function aprobar(int $idSolicitud, Administrador $admin): array
+    {
+        return $this->transaccion(function () use ($idSolicitud, $admin) {
+            [$sol, $tiendaVenta] = $this->cargarPendiente($idSolicitud, $admin);
+            $ahora = (string)$this->pdo->query('SELECT NOW()')->fetchColumn();
+
+            // la venta se bloquea para que nadie más la anule o la toque a la vez
+            $st = $this->pdo->prepare(
+                'SELECT v.estado, v.total, v.id_caja_turno, v.numero_correlativo, s.serie, s.id_tipo_comprobante
+                   FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+                  WHERE v.id_venta = ?' . $this->bloqueo()
+            );
+            $st->execute([$sol->idVenta]);
+            $venta = $st->fetch();
+            if (!$venta) throw new RuntimeException('La venta no existe.');
+            if ($venta['estado'] !== 'EMITIDA') throw new RuntimeException('La venta ya está anulada.');
+
+            // dinero en efectivo que hay que devolver (se calcula ANTES de marcar los pagos como ANULADO)
+            $st = $this->pdo->prepare(
+                "SELECT COALESCE(SUM(monto_pagado), 0) FROM pago_venta
+                  WHERE id_venta = ? AND estado = 'VALIDO' AND id_metodo_pago = ?"
+            );
+            $st->execute([$sol->idVenta, self::METODO_EFECTIVO]);
+            $efectivo = round((float)$st->fetchColumn(), 2);
+
+            // si el turno de la venta sigue abierto, el pago ANULADO ya sale del cuadre; si está cerrado, la devolución
+            // sale del turno abierto del cajero
+            $idTurnoDevolucion = null;
+            if ($efectivo > 0) {
+                $st = $this->pdo->prepare("SELECT estado FROM caja_turno WHERE id_caja_turno = ?");
+                $st->execute([$venta['id_caja_turno']]);
+                if ($st->fetchColumn() === 'CERRADO') {
+                    $st = $this->pdo->prepare(
+                        "SELECT id_caja_turno FROM caja_turno WHERE id_empleado = ? AND estado = 'ABIERTO'"
+                    );
+                    $st->execute([$sol->idEmpleadoSolicita]);
+                    $idTurnoDevolucion = $st->fetchColumn();
+                    if ($idTurnoDevolucion === false) {
+                        throw new RuntimeException('El cajero debe tener un turno de caja abierto para devolver el efectivo de esta venta.');
+                    }
+                }
+            }
+
+            // 1. solicitud aprobada, venta y pagos anulados
             $this->ejecutar(
                 "UPDATE solicitud_anulacion SET estado = 'APROBADA', fecha_hora_resolucion = ?, id_empleado_resuelve = ?
                   WHERE id_solicitud = ?",
@@ -88,11 +184,19 @@ class SolicitudAnulacionRepository
             );
             $this->ejecutar("UPDATE venta SET estado = 'ANULADA' WHERE id_venta = ?", [$sol->idVenta]);
             $this->ejecutar("UPDATE pago_venta SET estado = 'ANULADO' WHERE id_venta = ?", [$sol->idVenta]);
+            if ($idTurnoDevolucion !== null) {
+                $this->ejecutar(
+                    "INSERT INTO movimiento_caja (fecha_hora, tipo, monto, motivo, id_caja_turno, id_venta)
+                     VALUES (?, 'DEVOLUCION', ?, ?, ?, ?)",
+                    [$ahora, $efectivo, 'Anulación de venta ' . $venta['serie'] . '-' . str_pad((string)$venta['numero_correlativo'], 6, '0', STR_PAD_LEFT),
+                     $idTurnoDevolucion, $sol->idVenta]
+                );
+            }
 
-            // el stock vuelve: una entrada en el kardex por cada movimiento de venta
+            // 2. el stock vuelve: una entrada en el kardex por cada movimiento de venta
             $st = $this->pdo->prepare(
                 'SELECT id_tienda, id_producto, cantidad, id_lote FROM movimiento_stock
-                  WHERE id_venta = ? AND id_tipo_movimiento = ?'
+                  WHERE id_venta = ? AND id_tipo_movimiento = ? ORDER BY id_movimiento'
             );
             $st->execute([$sol->idVenta, self::TIPO_VENTA]);
             foreach ($st->fetchAll() as $m) {
@@ -116,6 +220,45 @@ class SolicitudAnulacionRepository
                      self::TIPO_ANULACION, $admin->idEmpleado, $sol->idVenta, $m['id_lote']]
                 );
             }
+
+            // 3. nota de crédito con el siguiente correlativo de la serie de la tienda
+            $st = $this->pdo->prepare(
+                'SELECT id_serie_nc, serie FROM serie_nota_credito WHERE id_tienda = ? AND id_tipo_comprobante = ?' . $this->bloqueo()
+            );
+            $st->execute([$tiendaVenta, $venta['id_tipo_comprobante']]);
+            $serieNc = $st->fetch();
+            if (!$serieNc) {
+                throw new RuntimeException('No hay una serie de notas de crédito para esta tienda (ejecute database/anulacion.sql).');
+            }
+            $this->ejecutar('UPDATE serie_nota_credito SET ultimo_numero = ultimo_numero + 1 WHERE id_serie_nc = ?', [$serieNc['id_serie_nc']]);
+            $st = $this->pdo->prepare('SELECT ultimo_numero FROM serie_nota_credito WHERE id_serie_nc = ?');
+            $st->execute([$serieNc['id_serie_nc']]);
+            $numeroNc = (int)$st->fetchColumn();
+            $this->ejecutar(
+                'INSERT INTO nota_credito (numero_correlativo, fecha_hora, motivo, monto, id_serie_nc, id_venta, id_solicitud)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$numeroNc, $ahora, $sol->motivo, $venta['total'], $serieNc['id_serie_nc'], $sol->idVenta, $idSolicitud]
+            );
+            $idNota = (int)$this->pdo->lastInsertId();
+            $notaCredito = $serieNc['serie'] . '-' . str_pad((string)$numeroNc, 6, '0', STR_PAD_LEFT);
+            $comprobante = $venta['serie'] . '-' . str_pad((string)$venta['numero_correlativo'], 6, '0', STR_PAD_LEFT);
+
+            // 4. registro de la anulación en el Sistema central
+            $codigoCentral = 'ANU-' . date('Ymd', strtotime($ahora)) . '-' . str_pad((string)$idSolicitud, 6, '0', STR_PAD_LEFT);
+            $this->ejecutar(
+                "INSERT INTO registro_anulacion_central (codigo_central, fecha_hora_registro, estado, detalle, id_solicitud, id_venta, id_nota_credito)
+                 VALUES (?, ?, 'REGISTRADO', ?, ?, ?, ?)",
+                [$codigoCentral, $ahora, json_encode([
+                    'comprobante'  => $comprobante,
+                    'nota_credito' => $notaCredito,
+                    'monto'        => (float)$venta['total'],
+                    'motivo'       => $sol->motivo,
+                    'autorizado_por' => $admin->idEmpleado,
+                    'solicitado_por' => $sol->idEmpleadoSolicita,
+                ], JSON_UNESCAPED_UNICODE), $idSolicitud, $sol->idVenta, $idNota]
+            );
+
+            return ['comprobante' => $comprobante, 'nota_credito' => $notaCredito, 'codigo_central' => $codigoCentral];
         });
     }
 
@@ -129,9 +272,9 @@ class SolicitudAnulacionRepository
         $this->transaccion(function () use ($idSolicitud, $admin, $motivoRechazo) {
             $this->cargarPendiente($idSolicitud, $admin);
             $this->ejecutar(
-                "UPDATE solicitud_anulacion SET estado = 'RECHAZADA', fecha_hora_resolucion = ?, id_empleado_resuelve = ?,
+                "UPDATE solicitud_anulacion SET estado = 'RECHAZADA', fecha_hora_resolucion = NOW(), id_empleado_resuelve = ?,
                         motivo_rechazo = ? WHERE id_solicitud = ?",
-                [date('Y-m-d H:i:s'), $admin->idEmpleado, $motivoRechazo, $idSolicitud]
+                [$admin->idEmpleado, $motivoRechazo, $idSolicitud]
             );
         });
     }
@@ -139,14 +282,13 @@ class SolicitudAnulacionRepository
     // Carga la solicitud pendiente y comprueba las reglas: tienda del administrador y solicitante distinto.
     private function cargarPendiente(int $idSolicitud, Administrador $admin): array
     {
-        $bloqueo = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
-        $st = $this->pdo->prepare('SELECT * FROM solicitud_anulacion WHERE id_solicitud = ?' . $bloqueo);
+        $st = $this->pdo->prepare('SELECT * FROM solicitud_anulacion WHERE id_solicitud = ?' . $this->bloqueo());
         $st->execute([$idSolicitud]);
         $f = $st->fetch();
         if (!$f) throw new RuntimeException('La solicitud no existe.');
-        $sol = SolicitudAnulacion::desdeFila($f);
+        $sol = SolicitudAnulacion::desde($f);
         if (!$sol->estaPendiente()) throw new RuntimeException('La solicitud ya fue resuelta.');
-        if (!$sol->resolucionValida($admin->idEmpleado)) {
+        if ($admin->idEmpleado === $sol->idEmpleadoSolicita) {
             throw new RuntimeException('Quien resuelve debe ser distinto de quien solicita.');
         }
         $st = $this->pdo->prepare(
@@ -160,18 +302,24 @@ class SolicitudAnulacionRepository
         return [$sol, $tienda];
     }
 
+    private function bloqueo(): string
+    {
+        return $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+    }
+
     private function ejecutar(string $sql, array $params): void
     {
         $this->pdo->prepare($sql)->execute($params);
     }
 
-    // todo o nada
-    private function transaccion(callable $accion): void
+    // todo o nada; devuelve lo que devuelva la acción
+    private function transaccion(callable $accion): mixed
     {
         $this->pdo->beginTransaction();
         try {
-            $accion();
+            $resultado = $accion();
             $this->pdo->commit();
+            return $resultado;
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw $e;

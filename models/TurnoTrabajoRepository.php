@@ -57,6 +57,6 @@ class TurnoTrabajoRepository
     {
         $st = $this->pdo->prepare('SELECT * FROM turno_trabajo WHERE id_empleado = ? ORDER BY fecha');
         $st->execute([$idEmpleado]);
-        return array_map(fn($f) => TurnoTrabajo::desdeFila($f), $st->fetchAll());
+        return array_map(fn($f) => TurnoTrabajo::desde($f), $st->fetchAll());
     }
 }
