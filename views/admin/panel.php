@@ -1,5 +1,5 @@
 <?php
-// V: panel del administrador con el diseño de panel_administrador_mass.html y datos reales de su tienda.
+// V: panel del administrador con datos reales de su tienda.
 // Variables desde AdminController::panel(): $empleado, $tiendaNombre, $hoy, $stockBajo, $ventas,
 // $inventario, $personal, $pendientes, $turnos, $aviso, $titulo
 if (!function_exists('h')) {
