@@ -1,396 +1,424 @@
-const TODAY='2026-10-19';
-function resolveStore(){
-  const q=new URLSearchParams(location.search),h=new URLSearchParams(location.hash.slice(1));
-  let v=q.get('tienda')||h.get('tienda');
-  try{v=v||sessionStorage.getItem('mass_tienda')||sessionStorage.getItem('tienda')}catch(e){}
-  if(!v)return 0;if(T[v])return +v;
-  const k=Object.keys(T).find(k=>T[k].toLowerCase().includes(String(v).toLowerCase().replace(/[-_+]/g,' ')));return k?+k:0;
-}
-const T={1:'Mass Cayma'};
-const P={1:['Leche evaporada Gloria 400 g','und','🥛'],2:['Arroz Costeño extra 1 kg','und','🍚'],3:['Gaseosa Inca Kola 1.5 L','und','🥤'],4:['Aceite vegetal Primor 1 L','und','🛢️'],5:['Atún Florida filete 170 g','und','🐟'],6:['Detergente Bolívar 800 g','und','🧴'],7:['Fideos spaghetti Don Vittorio 500 g','und','🍝'],8:['Papa blanca (por kg)','kg','🥔'],9:['Plátano de seda (por kg)','kg','🍌'],10:['Azúcar rubia Costeño 1 kg','und','🍬'],11:['Yogurt Gloria fresa 1 L','und','🥣'],12:['Cebolla roja (por kg)','kg','🧅']};
-const TM={1:['Venta','S'],2:['Anulación de venta','E'],3:['Traslado de salida','S'],4:['Traslado de entrada','E'],5:['Merma','S'],6:['Devolución de cliente','E'],7:['Ingreso de proveedor','E']};
-const LP=[1,11];
-/* códigos de barras EAN-13 de ejemplo (dígito verificador calculado). Se pueden reemplazar escaneando el código real y asociándolo al producto. */
-const ean=n=>{const b='775100'+String(n).padStart(6,'0');let s=0;for(let i=0;i<12;i++)s+=+b[i]*(i%2?3:1);return b+(10-s%10)%10};
-const BC={};for(const p in P)BC[p]=ean(p);
-const S0={1:[98,78,91,95,86,98,89,44.2,60,90,100,58.25],2:[96,100,97,100,100,20,100,57.5,56,98,99,60],3:[16,120,99,96,94,97,96,69.3,60,100,100,60]};
-const stock={};for(const t in S0)S0[t].forEach((q,i)=>stock[t+'-'+(i+1)]=q);
-const L=[[1,'L1-2610A','2026-11-30',40,38,1,1],[2,'L1-2701B','2027-03-15',60,60,1,1],[3,'Y1-2610A','2026-11-08',30,30,1,11],[4,'Y1-2611B','2026-12-20',70,70,1,11],[5,'L2-2610A','2026-12-05',40,36,2,1],[6,'L2-2701B','2027-03-20',60,60,2,1],[7,'Y2-2610A','2026-11-12',30,29,2,11],[8,'Y2-2611B','2026-12-22',70,70,2,11],[9,'L3-2608A','2026-10-16',3,0,3,1],[10,'L3-2701B','2027-02-20',21,16,3,1],[11,'Y3-2610A','2026-11-15',30,30,3,11],[12,'Y3-2611B','2026-12-24',70,70,3,11]].map(a=>({id:a[0],cod:a[1],v:a[2],ini:a[3],act:a[4],t:a[5],p:a[6]}));
-const TR=[{id:1,f:'2026-10-18 10:00',o:1,d:3,items:[[2,20,[]],[8,10.5,[]]],emp:'Carmen Ccori',est:'R',fr:'2026-10-18 10:00'}];
-const ME=[{id:1,f:'2026-10-18 12:00',t:3,mo:'VENCIDO',p:1,q:3,obs:'Leche evaporada fuera de fecha',emp:'Sofía Linares'},{id:2,f:'2026-10-19 09:00',t:1,mo:'DAÑADO',p:8,q:2.5,obs:'Papa golpeada en el traslado',emp:'Carmen Ccori'}];
-/* kardex: día, hora, cantidad, saldo, tienda, producto, tipo, origen */
-const K=[[17,'09:15',2,98,1,1,1,'B001-1'],[17,'09:15',1,99,1,7,1,'B001-1'],[17,'09:15',.8,59.2,1,8,1,'B001-1'],[17,'11:40',6,94,1,3,1,'F001-1'],[17,'11:40',12,88,1,5,1,'F001-1'],[17,'11:40',3,97,1,4,1,'F001-1'],[17,'12:30',1,20,2,6,1,'B002-1'],[17,'12:30',1.5,58.5,2,9,1,'B002-1'],[17,'14:05',1,99,1,2,1,'B001-2'],[17,'14:20',1,100,1,2,2,'B001-2'],[17,'15:00',2,98,2,10,1,'B002-2'],[17,'15:00',1,99,2,11,1,'B002-2'],[18,'09:30',3,21,3,1,1,'B003-1'],[18,'09:30',2,98,3,3,1,'B003-1'],[18,'10:00',20,80,1,2,3,'T1'],[18,'10:00',20,120,3,2,4,'T1'],[18,'10:00',10.5,48.7,1,8,3,'T1'],[18,'10:00',10.5,70.5,3,8,4,'T1'],[18,'10:10',1.25,58.75,1,12,1,'B001-3'],[18,'10:10',2,46.7,1,8,1,'B001-3'],[18,'10:10',2,78,1,2,1,'B001-3'],[18,'11:45',4,96,3,4,1,'F003-1'],[18,'11:45',3,97,3,6,1,'F003-1'],[18,'11:45',6,94,3,5,1,'F003-1'],[18,'12:00',3,18,3,1,5,'M1'],[18,'13:20',2,95,1,4,1,'F001-2'],[18,'13:20',3,91,1,3,1,'F001-2'],[18,'14:10',4,96,3,7,1,'B003-2'],[18,'14:10',2,16,3,1,1,'B003-2'],[18,'14:10',1.2,69.3,3,8,1,'B003-2'],[18,'15:00',1,99,3,3,6,'D1'],[19,'08:45',2,86,1,5,1,'B001-4'],[19,'08:45',.5,58.25,1,12,1,'B001-4'],[19,'09:00',2.5,44.2,1,8,5,'M2'],[19,'09:20',3,97,2,3,1,'B002-3'],[19,'09:20',4,96,2,1,1,'B002-3'],[19,'10:05',10,90,1,10,1,'F001-3'],[19,'10:05',10,89,1,7,1,'F001-3'],[19,'10:05',2,98,1,6,1,'F001-3'],[19,'11:30',2.5,56,2,9,1,'B002-4'],[19,'11:30',3,57,2,8,1,'B002-4'],[19,'12:00',.5,57.5,2,8,6,'D2']].map(a=>({f:'2026-10-'+a[0]+' '+a[1],q:a[2],s:a[3],t:a[4],p:a[5],ty:a[6],ref:a[7]}));
-let st=1,view='res',fp=0,fr='all',fk=0,nl=13,nt=2,nm=3;
-/* una sola tienda: se descartan los datos de las otras */
-for(const k in stock)if(!k.startsWith('1-'))delete stock[k];
-[L,ME,K].forEach(a=>{for(let i=a.length-1;i>=0;i--)if(a[i].t!==1)a.splice(i,1)});TR.length=0;
-const r3=x=>Math.round(x*1000)/1000;
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fd=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
-const days=v=>Math.round((Date.parse(v)-Date.parse(TODAY))/864e5);
-const MN={};
-const min=(p,t)=>MN[t+'-'+p]??(P[p][1]==='kg'?10:20);
-const ok=t=>st===0||st===t;
-const nf=x=>x.toLocaleString('es-PE',{maximumFractionDigits:3});
-const bd=(t,c)=>`<span class="bd ${c}">${t}</span>`;
-const lstate=l=>{if(l.act===0)return['Agotado','mute'];const d=days(l.v);return d<0?['Vencido','bad']:d<=30?['Por vencer','warn']:['Vigente','ok']};
-const refTxt=r=>/^[BF]/.test(r)?'Venta '+r.replace(/-(\d+)/,(m,n)=>'-'+n.padStart(8,'0')):r[0]==='T'?'Traslado N.º '+r.slice(1):r[0]==='M'?'Merma N.º '+r.slice(1):r[0]==='D'?'Devolución N.º '+r.slice(1):'Ingreso';
+'use strict';
+const API='index.php?r=stock_api';
+const TODAY=(()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')})();
+const csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
+let CAT={},fc='all',SOL=[],CATLOG={categorias:[],marcas:[],unidades:[]},REC=[];
+let T={},P={},BC={},stock={},MN={},L=[],ME=[],K=[],LP=[],PC={},TM={},storeId=0,storeName='Mi almacén';
+let view='res',fp=0,fr='all',fk=0,loading=false;
+let ordM='num-desc',ordK='num-desc',ultimaFirma=null;
+const NAV=[['res','Resumen'],['lot','Lotes y vencimientos'],['stk','Stock'],['mer','Mermas'],['kar','Kardex'],['rec','Traslados por recibir'],['nue','Productos nuevos'],['val','Costos y valorización'],['rot','Rotación']];
+const dlg=document.getElementById('dlg'),sdlg=document.getElementById('sdlg');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r3=x=>Math.round(Number(x)*1000)/1000;
+const nf=x=>Number(x||0).toLocaleString('es-PE',{maximumFractionDigits:3});
+const sol=x=>'S/ '+Number(x||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fd=s=>{if(!s)return '—';const d=String(s).slice(0,10);return d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4)};
+const days=v=>Math.round((Date.parse(String(v).slice(0,10)+'T00:00:00')-Date.parse(TODAY+'T00:00:00'))/864e5);
+const ok=t=>Number(t)===storeId;
+const min=(p,t=storeId)=>MN[t+'-'+p]??0;
+const stk=p=>Number(stock[storeId+'-'+p]||0);
+const bd=(t,c)=>`<span class="bd ${c}">${esc(t)}</span>`;
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2800)}
-function addK(t,p,ty,q,ref){K.push({f:TODAY+' 13:00',q,s:stock[t+'-'+p],t,p,ty,ref})}
-const NAV=[['res','Resumen'],['lot','Lotes y vencimientos'],['stk','Stock'],['mer','Mermas'],['kar','Kardex'],['val','Costos y valorización'],['rot','Rotación']];
-const go=v=>{view=v;fp=0;fr='all';fk=0;render()};
-const fS=(v,items,h)=>`<select onchange="${h};render()">${items.map(i=>`<option value="${i[0]}"${String(i[0])===String(v)?' selected':''}>${i[1]}</option>`).join('')}</select>`;
-const prodItems=ks=>[[0,'Todos los productos']].concat(ks.map(k=>[k,P[k][0]]));
-const tbl=(h,rows)=>rows.length?`<div class="card tb"><table><thead><tr>${h.map(x=>`<th class="${x[1]||''}">${x[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:'<div class="card empty">No hay registros con estos filtros.</div>';
-const head=(t,b)=>`<div class="ph"><div><h1>${t}</h1><p>Inventario del almacén</p></div>${b||''}</div>`;
-const bI='<button class="pri" onclick="openM(\'ing\')">+ Registrar ingreso</button>';
+function fail(m){const e=document.getElementById('err');if(e)e.textContent=m;else toast(m)}
+async function api(data=null){
+  const opt=data?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'Accept':'application/json'},body:JSON.stringify(data)}:{headers:{'Accept':'application/json'},cache:'no-store'};
+  const res=await fetch(API,opt);let j;try{j=await res.json()}catch(_){throw new Error('El servidor no devolvió JSON. Revisa PHP y la conexión MySQL.')}
+  if(!res.ok||!j.ok)throw new Error(j.mensaje||'No se pudo completar la operación.');return j;
+}
+function hydrate(d){
+  T={};P={};BC={};stock={};MN={};L=[];ME=[];K=[];LP=[];PC={};TM={};
+  SOL=d.solicitudes||[];CATLOG=d.catalogos||{categorias:[],marcas:[],unidades:[]};REC=d.por_recibir||[];
+  storeId=Number(d.tienda.id_tienda);storeName=d.tienda.nombre_tienda||'Mi almacén';
+  for(const p of d.productos){const id=Number(p.id_producto);P[id]=[p.nombre_producto,p.unidad||'und','📦'];CAT[id]=p.categoria||'Sin categoría';BC[id]=p.codigo_barras||'';PC[id]=Number(p.precio_venta||0);stock[storeId+'-'+id]=Number(p.stock||0);MN[storeId+'-'+id]=Number(p.stock_minimo||0);T[storeId]=storeName}
+  for(const l of d.lotes){const p=Number(l.id_producto);LP.push(p);L.push({id:Number(l.id_lote),cod:l.codigo_lote,v:String(l.fecha_vencimiento).slice(0,10),ini:Number(l.cantidad_inicial),act:Number(l.cantidad_actual),t:storeId,p})}
+  const types={};for(const m of d.movimientos){const id=Number(m.id_tipo_movimiento);types[id]=[m.nombre_movimiento,m.efecto];}
+  TM=types;
+  for(const m of d.movimientos){const ref=m.id_ingreso?'Ingreso N.º '+m.id_ingreso:m.id_merma?'Merma N.º '+m.id_merma:m.id_traslado?'Traslado N.º '+m.id_traslado:m.id_venta?'Venta N.º '+m.id_venta:'Movimiento';K.push({id:Number(m.id_movimiento),f:m.fecha_hora,q:Number(m.cantidad),s:Number(m.stock_nuevo),t:storeId,p:Number(m.id_producto),ty:Number(m.id_tipo_movimiento),ref,obs:m.observacion||''})}
+  for(const m of d.mermas){ME.push({id:Number(m.id_merma),f:m.fecha_hora,t:storeId,mo:m.motivo,p:Number(m.id_producto),q:Number(m.cantidad),obs:m.observacion||'',emp:m.empleado||''})}
+}
+async function load(silencioso=false){
+  if(loading)return;loading=true;if(!silencioso)document.getElementById('main').innerHTML='<div class="empty">Cargando información desde MySQL…</div>';
+  try{
+    const j=await api();
+    const firma=JSON.stringify(j.data);
+    // si nada cambió, no se vuelve a dibujar (así no se mueve nada mientras miras)
+    if(!(silencioso&&firma===ultimaFirma)){ultimaFirma=firma;hydrate(j.data);render()}
+    marcarEstado('Actualizado '+new Date().toLocaleTimeString('es-PE'))
+  }
+  catch(e){if(silencioso){marcarEstado('Sin actualizar: '+e.message);return}document.getElementById('main').innerHTML=`<div class="card empty"><b>No se pudo cargar el almacén</b><p>${esc(e.message)}</p><p>Verifica que Laragon esté iniciado, que la base minimarket_mass exista y que hayas ejecutado la migración de ingresos.</p><button class="pri" onclick="load()">Reintentar</button></div>`}
+  finally{loading=false}
+}
+const NAVMAP={res:vRes,lot:vLot,stk:vStock,mer:vMer,kar:vKar,rec:vRec,nue:vNue,val:vVal,rot:vRot};
+function go(v){view=v;fp=0;fr='all';fk=0;fc='all';render()}
 function render(){
-  document.getElementById('nav').innerHTML=NAV.map(n=>`<button class="nv" onclick="go('${n[0]}')"${view===n[0]?' aria-current="page"':''}>${n[1]}</button>`).join('');
-  const nm_=NAV.find(n=>n[0]===view)[1];
-  document.getElementById('crumb').innerHTML='MASS / <b>'+nm_+'</b>';
-  document.getElementById('main').innerHTML=({res:vRes,lot:vLot,stk:vStk2,tra:vTra,mer:vMer,kar:vKar,val:vVal,rot:vRot})[view]();
+  const cuenta={rec:REC.length,nue:SOL.filter(x=>x.estado!=='RECHAZADA').length};
+  document.getElementById('nav').innerHTML=NAV.map(n=>`<button class="nv" onclick="go('${n[0]}')"${view===n[0]?' aria-current="page"':''}>${n[1]}${cuenta[n[0]]?` <span class="bd warn">${cuenta[n[0]]}</span>`:''}</button>`).join('');
+  const name=NAV.find(n=>n[0]===view)?.[1]||'Resumen';document.getElementById('crumb').innerHTML='MASS / <b>'+name+'</b>';
+  // conserva la posición de la página y de cada tabla al actualizar
+  const main=document.getElementById('main');
+  const tablas=[...main.querySelectorAll('.tb')].map(e=>[e.scrollTop,e.scrollLeft]);
+  const y=window.scrollY;
+  main.innerHTML=(NAVMAP[view]||vRes)();
+  main.querySelectorAll('.tb').forEach((e,i)=>{if(tablas[i]){e.scrollTop=tablas[i][0];e.scrollLeft=tablas[i][1]}});
+  window.scrollTo(0,y);
 }
-function chart(){
-  const ds=[];for(let i=6;i>=0;i--)ds.push(new Date(Date.parse(TODAY)-i*864e5).toISOString().slice(0,10));
-  const a=ds.map(d=>{let e=0,s=0;K.forEach(k=>{if(k.f.slice(0,10)===d&&ok(k.t)&&P[k.p][1]==='und'){TM[k.ty][1]==='E'?e+=k.q:s+=k.q}});return[e,s]});
-  const mx=Math.max(1,...a.flat());let g='';
-  a.forEach((v,i)=>{const x=50+i*88,h1=v[0]/mx*130,h2=v[1]/mx*130;
-    g+=`<rect class="be" x="${x}" y="${160-h1}" width="22" height="${h1}" rx="3"/><rect class="bs" x="${x+26}" y="${160-h2}" width="22" height="${h2}" rx="3"/>`;
-    if(v[0])g+=`<text x="${x+11}" y="${154-h1}" text-anchor="middle">${nf(v[0])}</text>`;
-    if(v[1])g+=`<text x="${x+37}" y="${154-h2}" text-anchor="middle">${nf(v[1])}</text>`;
-    g+=`<text x="${x+24}" y="180" text-anchor="middle">${fd(ds[i]).slice(0,5)}</text>`});
-  return `<svg viewBox="0 0 700 190" role="img" aria-label="Entradas y salidas de los últimos 7 días">${g}<line x1="40" x2="690" y1="160" y2="160" class="ax"/></svg>`;
+const head=(t,b='')=>`<div class="ph"><div><h1>${t}</h1><p>${esc(storeName)} · Inventario conectado a MySQL</p></div>${b}</div>`;
+const bI='<button class="pri" onclick="openM(\'ing\')">+ Registrar ingreso</button>';
+const prodItems=()=>[[0,'Todos los productos'],...Object.keys(P).map(k=>[k,P[k][0]])];
+const fS=(v,items,h)=>`<select onchange="${h};render()">${items.map(i=>`<option value="${i[0]}"${String(i[0])===String(v)?' selected':''}>${esc(i[1])}</option>`).join('')}</select>`;
+const OPC_ORDEN=[['num-desc','Número: mayor a menor'],['num-asc','Número: menor a mayor'],['fecha-desc','Fecha: más reciente'],['fecha-asc','Fecha: más antigua'],['prod','Producto: A a Z'],['cant-desc','Cantidad: mayor a menor']];
+function ordenar(lista,criterio){
+  const cmp={
+    'num-desc':(a,b)=>b.id-a.id,
+    'num-asc':(a,b)=>a.id-b.id,
+    'fecha-desc':(a,b)=>String(b.f).localeCompare(String(a.f))||b.id-a.id,
+    'fecha-asc':(a,b)=>String(a.f).localeCompare(String(b.f))||a.id-b.id,
+    'prod':(a,b)=>(P[a.p]?.[0]||'').localeCompare(P[b.p]?.[0]||'','es')||b.id-a.id,
+    'cant-desc':(a,b)=>Math.abs(b.q)-Math.abs(a.q)||b.id-a.id
+  }[criterio]||((a,b)=>b.id-a.id);
+  return [...lista].sort(cmp);
 }
+const tbl=(h,rows)=>rows.length?`<div class="card tb"><table><thead><tr>${h.map(x=>`<th class="${x[1]||''}">${x[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:'<div class="card empty">No hay registros con estos filtros.</div>';
+function card(t,i,n,s){return `<div class="card st"><div>${t}<span class="ic">${i}</span></div><b>${n}</b><small>${s}</small></div>`}
 function vRes(){
-  const low=[];for(const k in stock){const[t,p]=k.split('-').map(Number);if(ok(t)&&stock[k]<=min(p,t))low.push([t,p,stock[k]])}
-  const lv=L.filter(l=>ok(l.t)&&l.act>0&&days(l.v)<=30).length, tr=TR.filter(x=>x.est==='T'&&(ok(x.o)||ok(x.d))).length;
-  const c=(t,i,n,s)=>`<div class="card st"><div>${t}<span class="ic">${i}</span></div><b>${n}</b><small>${s}</small></div>`;
-  const rec=K.map((k,i)=>[k,i]).filter(x=>ok(x[0].t)).slice(-6).reverse().map(([k,i])=>`<div class="li"><span class="pi">${P[k.p][2]}</span><div>${P[k.p][0]}<small>${TM[k.ty][0]} · ${fd(k.f.slice(0,10)).slice(0,5)}</small></div><b style="color:var(--${TM[k.ty][1]==='E'?'e':'s'})">${TM[k.ty][1]==='E'?'+':'−'}${nf(k.q)}</b></div>`).join('');
-  return head('Resumen general',bI)+`<div class="cards">${c('Productos en catálogo','📦',Object.keys(P).length,'Catálogo general')}${c('Stock bajo','⚠️',low.length,'Requieren reposición')}${c('Lotes por vencer','⏳',lv,'Vencen en 30 días o antes')}</div>
-  ${alerts()}<div class="card"><div class="ch">Entradas y salidas · últimos 7 días<span>En unidades (los productos por kg no se suman)</span></div>${chart()}<div class="lg"><span><i style="background:var(--e)"></i>Entradas</span><span><i style="background:var(--s)"></i>Salidas</span></div></div>
-  <div class="two"><div class="card"><div class="ch">Productos por reponer</div>${low.length?low.slice(0,5).map(x=>`<div class="li"><span class="pi">${P[x[1]][2]}</span><div>${P[x[1]][0]}<small>${nf(x[2])} ${P[x[1]][1]} · mínimo ${min(x[1],x[0])}${st?'':' · '+T[x[0]]}</small></div><button class="sm" onclick="openM('ing',${x[0]},${x[1]})">Ingresar</button></div>`).join(''):'<div class="empty">Todo el stock está sobre el mínimo.</div>'}</div>
-  <div class="card"><div class="ch">Actividad reciente</div>${rec||'<div class="empty">Aún no hay movimientos.</div>'}</div></div>`;
+ const ps=Object.keys(P).map(Number),low=ps.filter(p=>stk(p)<=min(p)),near=L.filter(l=>l.act>0&&days(l.v)<=30),mov=K.slice(0,7);
+ const total=ps.reduce((a,p)=>a+stk(p),0),recent=mov.map(k=>`<div class="li"><span class="pi">📦</span><div>${esc(P[k.p]?.[0]||'Producto')}<small>${esc(TM[k.ty]?.[0]||'Movimiento')} · ${fd(k.f)}</small></div><b>${TM[k.ty]?.[1]==='E'?'+':'−'}${nf(k.q)}</b></div>`).join('');
+ return head('Resumen general',bI)+`<div class="cards">${card('Productos activos','📦',ps.length,'Catálogo de la tienda')}${card('Unidades en stock','📊',nf(total),'Existencias actuales')}${card('Stock bajo','⚠️',low.length,'Productos por reponer')}${card('Lotes por vencer','⏳',near.length,'Vencidos o vencen en 30 días')}</div>${alerts()}<div class="two"><div class="card"><div class="ch">Productos por reponer</div>${low.length?low.slice(0,8).map(p=>`<div class="li"><span class="pi">📦</span><div>${esc(P[p][0])}<small>${nf(stk(p))} ${P[p][1]} · mínimo ${nf(min(p))}</small></div><button class="sm" onclick="openM('ing',${p})">Ingresar</button></div>`).join(''):'<div class="empty">Todo el stock está sobre el mínimo.</div>'}</div><div class="card"><div class="ch">Actividad reciente<span>Movimientos registrados</span></div>${recent||'<div class="empty">Aún no hay movimientos.</div>'}</div></div>`;
 }
-function vLot(){
-  const R=[['all','Todos los vencimientos'],['venc','Vencidos'],['7','Vencen en 7 días o menos'],['30','Vencen en 8 a 30 días'],['mas','Vencen en más de 30 días']];
-  const inR=l=>{const d=days(l.v);return fr==='venc'?d<0:fr==='7'?d>=0&&d<=7:fr==='30'?d>7&&d<=30:fr==='mas'?d>30:true};
-  const rows=L.filter(l=>ok(l.t)&&(!fp||l.p===fp)&&inR(l)).sort((a,b)=>a.v<b.v?-1:a.v>b.v?1:a.t-b.t).map(l=>{const s=lstate(l);return `<tr><td>${P[l.p][0]}</td><td>${esc(l.cod)}</td><td>${fd(l.v)}</td><td class="n">${days(l.v)}</td><td class="n">${nf(l.ini)}</td><td class="n">${nf(l.act)}</td><td>${bd(s[0],s[1])}</td></tr>`});
-  return head('Lotes y vencimientos',bI)+`<div class="flt">${fS(fp,prodItems(LP),'fp=+this.value')}${fS(fr,R,'fr=this.value')}<button onclick="scanFilter()">📷 Escanear</button></div>`+tbl([['Producto'],['Lote'],['Vence'],['Días','n'],['Inicial','n'],['Queda','n'],['Estado']],rows)+'<p class="note">Fecha de referencia: 19/10/2026. La leche y el yogurt salen primero del lote que vence antes.</p>';
+function alerts(){const a=L.filter(l=>l.act>0&&days(l.v)<=30).sort((x,y)=>x.v.localeCompare(y.v));if(!a.length)return '';return `<div class="card" style="margin-bottom:20px"><div class="ch">Alertas de vencimiento<span>Lotes vencidos o que vencen en 30 días</span></div>${a.slice(0,10).map(l=>{const d=days(l.v);return `<div class="li"><span class="pi">📦</span><div>${esc(P[l.p]?.[0]||'Producto')}<small>Lote ${esc(l.cod)} · quedan ${nf(l.act)} ${P[l.p]?.[1]||''}</small></div>${d<0?bd('Vencido hace '+(-d)+' d','bad')+` <button class="sm" onclick="mermaLote(${l.id})">Pasar a merma</button>`:bd(d===0?'Vence hoy':'Vence en '+d+' d','warn')}</div>`}).join('')}</div>`}
+// Filtro por categoría con botones (chips)
+const cats=()=>[...new Set(Object.keys(P).map(p=>CAT[p]||'Sin categoría'))].sort((a,b)=>a.localeCompare(b,'es'));
+function chipsCat(){
+  const lista=[['all','Todas']].concat(cats().map(c=>[c,c]));
+  return `<div class="chips" role="group" aria-label="Categorías">${lista.map(x=>`<button type="button" class="chip" aria-pressed="${String(x[0])===String(fc)}" onclick="setCat('${esc(x[0])}')">${esc(x[1])}</button>`).join('')}</div>`;
 }
-function vStk(){
-  const rows=[];for(const k in stock){const[t,p]=k.split('-').map(Number);if(!ok(t)||(fp&&p!==fp))continue;const q=stock[k],lo=q<=min(p);
-    rows.push(`<tr><td>${T[t]}</td><td>${P[p][2]} ${P[p][0]}</td><td class="n">${nf(q)} ${P[p][1]}</td><td class="n">${min(p)}</td><td>${lo?bd('Reponer','warn'):bd('Normal','ok')}</td></tr>`)}
-  return head('Stock',bI)+`<div class="flt">${fS(fp,prodItems(Object.keys(P)),'fp=+this.value')}</div>`+tbl([['Tienda'],['Producto'],['Stock actual','n'],['Mínimo','n'],['Situación']],rows);
+function setCat(c){fc=c;render()}
+function enCat(p){return fc==='all'||(CAT[p]||'Sin categoría')===fc}
+function vLot(){const ranges=[['all','Todos los vencimientos'],['venc','Vencidos'],['7','Vencen en 7 días o menos'],['30','Vencen en 8 a 30 días'],['mas','Vencen en más de 30 días']];const inside=l=>{const d=days(l.v);return fr==='venc'?d<0:fr==='7'?d>=0&&d<=7:fr==='30'?d>7&&d<=30:fr==='mas'?d>30:true};const rows=L.filter(l=>(!fp||l.p===fp)&&inside(l)&&enCat(l.p)).sort((a,b)=>a.v.localeCompare(b.v)).map(l=>{const d=days(l.v),state=l.act<=0?['Agotado','mute']:d<0?['Vencido','bad']:d<=30?['Por vencer','warn']:['Vigente','ok'];return `<tr><td>${esc(P[l.p]?.[0]||'')}</td><td>${esc(l.cod)}</td><td>${fd(l.v)}</td><td class="n">${d}</td><td class="n">${nf(l.ini)}</td><td class="n">${nf(l.act)}</td><td>${bd(...state)}</td><td>${d<0&&l.act>0?`<button class="sm" onclick="mermaLote(${l.id})">Registrar merma</button>`:''}</td></tr>`});return head('Lotes y vencimientos',bI)+chipsCat()+`<div class="flt">${fS(fp,prodItems(),'fp=+this.value')}${fS(fr,ranges,'fr=this.value')}</div>`+tbl([['Producto'],['Lote'],['Vence'],['Días','n'],['Inicial','n'],['Queda','n'],['Estado'],['Acción']],rows)+`<p class="note">Los ingresos con código y fecha de vencimiento quedan asociados al lote y se actualizan en MySQL.</p>`}
+function vStock(){const ps=Object.keys(P).map(Number).filter(p=>(!fp||p===fp)&&enCat(p));const rows=ps.map(p=>{const q=stk(p),m=min(p);return `<tr><td>📦 ${esc(P[p][0])}<small>${BC[p]?'Código '+esc(BC[p]):'Sin código de barras'}</small></td><td class="n">${nf(q)} ${P[p][1]}</td><td class="n"><input class="mn" type="number" min="0" step="0.001" value="${m}" onchange="setMin(${p},this.value)" aria-label="Stock mínimo"></td><td>${q<=m?bd('Reponer','warn'):bd('Normal','ok')}</td><td><button class="sm" onclick="openM('ing',${p})">Ingreso</button> <button class="sm" onclick="openM('mer',${p})">Merma</button></td></tr>`});return head('Stock',bI)+chipsCat()+`<div class="flt">${fS(fp,prodItems(),'fp=+this.value')}<button onclick="scanGlobal()">📷 Escanear</button></div>`+tbl([['Producto'],['Stock actual','n'],['Mínimo editable','n'],['Situación'],['Acciones']],rows)}
+function vMer(){const c={VENCIDO:'bad',DAÑADO:'warn',ROBO:'bad',OTRO:'mute'};const rows=ordenar(ME.filter(m=>!fp||m.p===fp),ordM).map(m=>`<tr><td>N.º ${m.id}</td><td>${fd(m.f)}</td><td>${bd(m.mo[0]+m.mo.slice(1).toLowerCase(),c[m.mo]||'mute')}</td><td>${esc(P[m.p]?.[0]||'')}</td><td class="n">${nf(m.q)} ${P[m.p]?.[1]||''}</td><td class="obs">${esc(m.obs)}</td><td>${esc(m.emp)}</td></tr>`);return head('Mermas',`<button class="pri" onclick="openM('mer')">+ Registrar merma</button>`)+`<div class="flt">${fS(fp,prodItems(),'fp=+this.value')}${fS(ordM,OPC_ORDEN,'ordM=this.value')}</div>`+tbl([['Merma'],['Fecha'],['Motivo'],['Producto'],['Cantidad','n'],['Observación','obs'],['Responsable']],rows)}
+function vKar(){const types=[[0,'Todos los movimientos'],...Object.keys(TM).map(k=>[k,TM[k][0]])];const rows=ordenar(K.filter(k=>(!fp||k.p===fp)&&(!fk||k.ty===fk)&&enCat(k.p)),ordK).map(k=>{const entry=TM[k.ty]?.[1]==='E';return `<tr><td>${k.id}</td><td>${fd(k.f)} ${String(k.f).slice(11,16)}</td><td>${esc(P[k.p]?.[0]||'')}</td><td>${bd(TM[k.ty]?.[0]||'Movimiento',entry?'ok':'bad')}</td><td class="n">${entry?'+':'−'}${nf(k.q)}</td><td class="n">${nf(k.s)}</td><td>${esc(k.ref)}</td><td class="obs">${esc(k.obs)}</td></tr>`});return head('Kardex')+chipsCat()+`<div class="flt">${fS(fp,prodItems(),'fp=+this.value')}${fS(fk,types,'fk=+this.value')}${fS(ordK,OPC_ORDEN,'ordK=this.value')}</div>`+tbl([['N.º'],['Fecha'],['Producto'],['Movimiento'],['Cantidad','n'],['Saldo','n'],['Origen'],['Observación','obs']],rows)}
+function vVal(){const ps=Object.keys(P).map(Number),rows=ps.map(p=>[p,stk(p),stk(p)*PC[p]]).sort((a,b)=>b[2]-a[2]);const total=rows.reduce((s,x)=>s+x[2],0);return head('Costos y valorización')+`<div class="cards">${card('Valorización referencial','💰',sol(total),'Calculada con el precio de venta del catálogo; no es costo de compra.')}${card('Productos','📦',ps.length,'Productos activos')}</div>`+tbl([['Producto'],['Stock','n'],['Precio de venta','n'],['Valor referencial','n']],rows.map(([p,q,v])=>`<tr><td>${esc(P[p][0])}</td><td class="n">${nf(q)}</td><td class="n">${sol(PC[p])}</td><td class="n">${sol(v)}</td></tr>`))}
+function vRot(){const ps=Object.keys(P).map(Number);return head('Rotación de productos')+`<div class="card empty">La rotación basada en ventas se habilitará cuando se conecte el historial de ventas al reporte de almacén. El stock mostrado sí proviene de MySQL.</div>`+tbl([['Producto'],['Stock actual','n']],ps.map(p=>`<tr><td>${esc(P[p][0])}</td><td class="n">${nf(stk(p))} ${P[p][1]}</td></tr>`))}
+
+// ---- Productos nuevos: el administrador permite el código y luego el almacén registra los datos ----
+function vNue(){
+  const est={PENDIENTE:['Esperando al administrador','warn'],APROBADA:['Permitido: falta registrarlo','ok'],RECHAZADA:['Rechazado','bad']};
+  const rows=SOL.map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.fecha)}</td><td>${bd(est[x.estado]?.[0]||x.estado,est[x.estado]?.[1]||'mute')}${x.estado==='RECHAZADA'&&x.motivo?`<small>${esc(x.motivo)}</small>`:''}</td><td>${x.estado==='APROBADA'?`<button class="pri sm" onclick="openNuevo(${Number(x.id)})">Registrar producto</button>`:''}</td></tr>`);
+  return head('Productos nuevos')+`<div class="card" style="margin-bottom:16px"><div class="ch">¿Cómo funciona?</div><p class="note" style="margin:8px 0 0">Escanea un código que no existe: se envía una solicitud al administrador de ${esc(storeName)}. Cuando la permita, aquí aparece el botón <b>Registrar producto</b> para que llenes sus datos.</p></div>`+tbl([['Código'],['Fecha'],['Estado'],['']],rows);
 }
-function vStk2(){
-  const ts=Object.keys(T).map(Number).filter(ok);
-  const sec=t=>{const rows=[];let lo=0;for(const p of Object.keys(P).map(Number)){if(fp&&p!==fp)continue;const q=stock[t+'-'+p],l=q<=min(p,t);if(l)lo++;rows.push(`<tr><td>${P[p][2]} ${P[p][0]}<small>${BC[p]?'Cód. '+BC[p]:'Sin código de barras'}</small></td><td class="n">${nf(q)} ${P[p][1]}</td><td class="n"><input class="mn" type="number" min="0" step="any" value="${min(p,t)}" onchange="setMin(${t},${p},this.value)" aria-label="Stock mínimo"></td><td>${l?bd('Reponer','warn'):bd('Normal','ok')}</td></tr>`)}
-    return `<div class="card" style="margin-bottom:20px"><div class="ch">Productos<span>${rows.length} productos · ${lo} por reponer</span></div><div class="tb"><table><thead><tr><th>Producto</th><th class="n">Stock actual</th><th class="n">Mínimo (editable)</th><th>Situación</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`};
-  return head('Stock',bI)+`<div class="flt">${fS(fp,prodItems(Object.keys(P)),'fp=+this.value')}<button onclick="scanFilter()">📷 Escanear</button></div>`+ts.map(sec).join('');
+function openNuevo(id){
+  const x=SOL.find(s=>Number(s.id)===Number(id));if(!x||x.estado!=='APROBADA')return;
+  const o=(arr,v,t)=>arr.map(a=>`<option value="${a[v]}">${esc(a[t])}</option>`).join('');
+  dlg.innerHTML=`<h2>Registrar producto nuevo</h2><p class="note" style="margin:0">Código de barras autorizado: <b>${esc(x.codigo)}</b></p>
+  <label>Nombre del producto<input id="nnom" maxlength="100"></label>
+  <label>Categoría<select id="ncat">${o(CATLOG.categorias,'id_categoria','nombre_categoria')}</select></label>
+  <label>…o categoría nueva <small>(opcional)</small><input id="ncatn" maxlength="50"></label>
+  <label>Marca<select id="nmar">${o(CATLOG.marcas,'id_marca','nombre_marca')}</select></label>
+  <label>…o marca nueva <small>(opcional)</small><input id="nmarn" maxlength="50"></label>
+  <label>Unidad<select id="nuni">${o(CATLOG.unidades,'id_unidad','abreviatura')}</select></label>
+  <label>Precio de venta (S/)<input id="npre" type="number" min="0.01" step="0.01" inputmode="decimal"></label>
+  <label>Se vende por peso<select id="npes"><option value="N">No</option><option value="S">Sí</option></select></label>
+  <div class="err" id="err" role="alert"></div>
+  <div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="saveNuevo(${Number(id)})">Registrar producto</button></div>`;
+  dlg.showModal();
 }
-function vTra(){
-  const rows=[];TR.filter(x=>ok(x.o)||ok(x.d)).slice().reverse().forEach(x=>x.items.forEach((i,n)=>{
-    const act=n?'':(x.est==='T'&&st===x.d?`<button class="sm pri" onclick="recv(${x.id})">Confirmar recepción</button>`:'');
-    rows.push(`<tr><td>N.º ${x.id}</td><td>${fd(x.f.slice(0,10))}</td><td>${T[x.o]}</td><td>${T[x.d]}</td><td>${P[i[0]][0]}</td><td class="n">${nf(i[1])} ${P[i[0]][1]}</td><td>${n?'':x.est==='T'?bd('En tránsito','warn'):bd('Recibido '+fd(x.fr.slice(0,10)).slice(0,5),'ok')}</td><td>${act}</td></tr>`)}));
-  return head('Traslados',`<button class="pri" onclick="openM('tra')">+ Registrar traslado</button>`)+tbl([['Traslado'],['Salida'],['Origen'],['Destino'],['Producto'],['Cantidad','n'],['Estado'],['']],rows)+'<p class="note">El stock sale de la tienda de origen al registrar el traslado y entra a la de destino cuando esta confirma la recepción. La tienda de destino confirma la recepción desde su propio acceso.</p>';
-}
-function vMer(){
-  const c={VENCIDO:'bad',DAÑADO:'warn',ROBO:'bad',OTRO:'mute'};
-  const rows=ME.filter(m=>ok(m.t)).slice().reverse().map(m=>`<tr><td>N.º ${m.id}</td><td>${fd(m.f.slice(0,10))}</td><td>${bd(m.mo[0]+m.mo.slice(1).toLowerCase(),c[m.mo])}</td><td>${P[m.p][0]}</td><td class="n">${nf(m.q)} ${P[m.p][1]}</td><td>${esc(m.obs||'')}</td></tr>`);
-  return head('Mermas',`<button class="pri" onclick="openM('mer')">+ Registrar merma</button>`)+tbl([['Merma'],['Fecha'],['Motivo'],['Producto'],['Cantidad','n'],['Observación']],rows);
-}
-function vKar(){
-  const ty=[[0,'Todos los movimientos']].concat(Object.keys(TM).map(k=>[k,TM[k][0]]));
-  const rows=K.map((k,i)=>[k,i+1]).filter(([k])=>ok(k.t)&&(!fp||k.p===fp)&&(!fk||k.ty===fk)).reverse().map(([k,id])=>{const e=TM[k.ty][1]==='E';
-    return `<tr><td>${id}</td><td>${fd(k.f.slice(0,10))} ${k.f.slice(11)}</td><td>${P[k.p][0]}</td><td>${bd(TM[k.ty][0],e?'ok':'bad')}</td><td class="n">${e?'+':'−'}${nf(k.q)}</td><td class="n">${nf(k.s)}</td><td>${refTxt(k.ref)}</td></tr>`});
-  return head('Kardex')+`<div class="flt">${fS(fp,prodItems(Object.keys(P)),'fp=+this.value')}${fS(fk,ty,'fk=+this.value')}<button onclick="scanFilter()">📷 Escanear</button></div>`+tbl([['N.º'],['Fecha'],['Producto'],['Movimiento'],['Cantidad','n'],['Saldo','n'],['Origen']],rows);
-}
-/* ---- costos, valorización y rotación ---- */
-const PC={1:3.8,2:4.2,3:5.5,4:8.9,5:4.6,6:9.5,7:2.9,8:1.8,9:2.5,10:3.6,11:6.2,12:2.2};
-let rn=30;
-const sol=x=>'S/ '+x.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
-const tsel=()=>Object.keys(T).map(Number).filter(ok);
-const stk=p=>tsel().reduce((s,t)=>s+stock[t+'-'+p],0);
-const kc=(t,i,n,s)=>`<div class="card st"><div>${t}<span class="ic">${i}</span></div><b>${n}</b><small>${s}</small></div>`;
-const hbar=(i,n,s,v,mx,lab,col)=>`<div class="li"><span class="pi">${i}</span><div>${n}${s?`<small>${s}</small>`:''}<div class="hbr"><i style="width:${mx>0?Math.max(2,v/mx*100):0}%;background:${col||'var(--red)'}"></i></div></div><b>${lab}</b></div>`;
-function setCost(p,x){x=+x;if(!(x>=0))return toast('El costo debe ser 0 o más.');PC[p]=x;render();toast('Costo actualizado')}
-function vVal(){
-  const ps=Object.keys(P).map(Number),mes=new Date(TODAY).toLocaleDateString('es-PE',{month:'long',year:'numeric',timeZone:'UTC'});
-  const V=ps.map(p=>[p,stk(p),stk(p)*PC[p]]).sort((a,b)=>b[2]-a[2]),tot=V.reduce((s,x)=>s+x[2],0);
-  const M=ME.filter(m=>ok(m.t)&&m.f.startsWith(TODAY.slice(0,7))),mt=M.reduce((s,m)=>s+m.q*PC[m.p],0),mo={},cl={VENCIDO:'bad',DAÑADO:'warn',ROBO:'bad',OTRO:'mute'};
-  M.forEach(m=>mo[m.mo]=(mo[m.mo]||0)+m.q*PC[m.p]);
-  const SV=tsel().map(t=>[t,ps.reduce((s,p)=>s+stock[t+'-'+p]*PC[p],0)]),mx=Math.max(1,...SV.map(x=>x[1]));
-  const rows=V.map(([p,q,v])=>`<tr><td>${P[p][2]} ${P[p][0]}</td><td class="n">${nf(q)} ${P[p][1]}</td><td class="n"><input class="mn" type="number" min="0" step="any" value="${PC[p]}" onchange="setCost(${p},this.value)" aria-label="Costo unitario"></td><td class="n">${sol(v)}</td><td class="n">${(tot?v/tot*100:0).toFixed(1)}%</td></tr>`);
-  const mr=M.slice().reverse().map(m=>`<tr><td>${fd(m.f.slice(0,10))}</td><td>${bd(m.mo[0]+m.mo.slice(1).toLowerCase(),cl[m.mo])}</td><td>${P[m.p][0]}</td><td class="n">${nf(m.q)} ${P[m.p][1]}</td><td class="n">${sol(PC[m.p])}</td><td class="n"><b>${sol(m.q*PC[m.p])}</b></td></tr>`);
-  return head('Costos y valorización')+`<div class="cards">${kc('Dinero en stock','💰',sol(tot),'Valorizado a precio de costo')}${kc('Merma de '+mes,'🗑️',sol(mt),M.length+' registros en el mes')}${kc('Merma sobre el stock','📉',(tot?mt/tot*100:0).toFixed(1)+'%','Pérdida del mes ÷ valor en stock')}</div>
-  <div style="margin:0 0 20px"><div class="card"><div class="ch">Pérdida por motivo<span>${mes}</span></div>${Object.keys(mo).length?Object.entries(mo).sort((a,b)=>b[1]-a[1]).map(([k,v])=>hbar('🗑️',k[0]+k.slice(1).toLowerCase(),'',v,mt,sol(v))).join(''):'<div class="empty">Sin mermas este mes.</div>'}</div></div>
-  <div class="card" style="margin-bottom:8px"><div class="ch">Valor por producto<span>Edita el costo unitario (S/ por und o kg)</span></div></div>`+tbl([['Producto'],['Stock','n'],['Costo unit. (S/)','n'],['Valor en stock','n'],['% del total','n']],rows)
-  +`<div class="card" style="margin:20px 0 8px"><div class="ch">Mermas de ${mes}<span>Total perdido: ${sol(mt)}</span></div></div>`+tbl([['Fecha'],['Motivo'],['Producto'],['Cantidad','n'],['Costo unit.','n'],['Pérdida','n']],mr)
-  +'<p class="note">Las mermas se valorizan al costo actual de cada producto. Los costos de ejemplo se pueden reemplazar por los reales.</p>';
-}
-function vRot(){
-  const ps=Object.keys(P).map(Number),d0=new Date(Date.parse(TODAY)-(rn-1)*864e5).toISOString().slice(0,10);
-  const f0=K.reduce((m,k)=>k.f<m?k.f:m,TODAY).slice(0,10),span=Math.max(1,Math.min(rn,1-days(f0)));
-  const R=ps.map(p=>{let u=0;K.forEach(k=>{if(k.p===p&&ok(k.t)&&k.f.slice(0,10)>=d0){if(k.ty===1)u+=k.q;if(k.ty===2)u-=k.q}});const q=stk(p),pd=u/span;return{p,u,pd,q,cob:pd>0?q/pd:null,sv:u*PC[p],v:q*PC[p]}}).sort((a,b)=>b.sv-a.sv);
-  R.forEach((r,i)=>r.c=r.u<=0?['Parado','bad']:i<4?['Alta rotación','ok']:i<8?['Media','warn']:['Baja','mute']);
-  const lo=R.filter(r=>r.c[0]==='Baja'||r.c[0]==='Parado'),top=R.filter(r=>r.u>0).slice(0,5),bot=R.slice(-5).reverse(),mb=Math.max(1,...bot.map(r=>r.sv));
-  const rows=R.map(r=>`<tr><td>${P[r.p][2]} ${P[r.p][0]}</td><td class="n">${nf(r.u)} ${P[r.p][1]}</td><td class="n">${nf(Math.round(r.pd*100)/100)}</td><td class="n">${nf(r.q)}</td><td class="n">${r.cob===null?'—':r.cob>999?'+999':Math.round(r.cob)}</td><td class="n">${sol(r.v)}</td><td>${bd(r.c[0],r.c[1])}</td></tr>`);
-  return head('Rotación de productos',`<div class="flt" style="margin:0">${fS(rn,[[7,'Últimos 7 días'],[30,'Últimos 30 días'],[90,'Últimos 90 días']],'rn=+this.value')}</div>`)+`<div class="cards">${kc('Alta rotación','🔥',R.filter(r=>r.c[0]==='Alta rotación').length,'Los que más se venden')}${kc('Baja o parados','🧊',lo.length,'Se venden poco o nada')}${kc('Capital en baja rotación','💤',sol(lo.reduce((s,r)=>s+r.v,0)),'Dinero detenido en stock')}</div>
-  <div class="two" style="margin:0 0 20px;grid-template-columns:1fr 1fr"><div class="card"><div class="ch">Más vendidos<span>Top 5</span></div>${top.length?top.map(r=>hbar(P[r.p][2],P[r.p][0],nf(Math.round(r.pd*100)/100)+' '+P[r.p][1]+' por día',r.sv,top[0].sv,nf(r.u)+' '+P[r.p][1]+' · '+sol(r.sv))).join(''):'<div class="empty">Sin ventas en el periodo.</div>'}</div>
-  <div class="card"><div class="ch">Menos movimiento<span>Los 5 más lentos</span></div>${bot.map(r=>hbar(P[r.p][2],P[r.p][0],'Stock '+nf(r.q)+' '+P[r.p][1]+' · '+sol(r.v)+' detenido',r.sv,mb,r.u>0?nf(r.u)+' '+P[r.p][1]:'Sin ventas','var(--s)')).join('')}</div></div>`
-  +tbl([['Producto'],['Vendido','n'],['Venta diaria','n'],['Stock','n'],['Cobertura (días)','n'],['Valor en stock','n'],['Clasificación']],rows)
-  +`<p class="note">Basado en ${span} día${span>1?'s':''} de movimientos (ventas menos anulaciones). Los rankings usan ventas al costo para poder comparar unidades y kilos. «Parado» = sin ventas en el periodo. Cobertura = días que dura el stock al ritmo actual.</p>`;
-}
-/* ---- registros ---- */
-function take(t,p,q,skip){
-  const ls=L.filter(l=>l.t===t&&l.p===p&&l.act>0&&(!skip||l.v>=TODAY)).sort((a,b)=>a.v<b.v?-1:1);
-  if(r3(ls.reduce((s,l)=>s+l.act,0))<q)return null;
-  let rest=q;const plan=[];for(const l of ls){if(rest<=0)break;const x=Math.min(l.act,rest);plan.push([l,x]);rest=r3(rest-x)}
-  return plan;
-}
-function addLot(t,p,cod,v,x){const n=L.find(y=>y.t===t&&y.p===p&&y.cod===cod);if(n){n.ini=r3(n.ini+x);n.act=r3(n.act+x)}else L.push({id:nl++,cod,v,ini:x,act:x,t,p})}
-function recv(id){
-  const x=TR.find(y=>y.id===id);
-  if(st!==x.d)return toast('Para confirmar la recepción, elige arriba la tienda de destino: '+T[x.d]+'.');
-  x.items.forEach(([p,q,lots])=>{stock[x.d+'-'+p]=r3(stock[x.d+'-'+p]+q);lots.forEach(([cod,v,n])=>addLot(x.d,p,cod,v,n));addK(x.d,p,4,q,'T'+id)});
-  x.est='R';x.fr=TODAY+' 13:00';render();toast('Recepción confirmada en '+T[x.d]);
-}
-const tO=()=>`<option value="${st}">${T[st]}</option>`;
-const pO=s=>Object.keys(P).map(k=>`<option value="${k}"${+k===s?' selected':''}>${P[k][0]} (${P[k][1]})</option>`).join('');
-const dlg=document.getElementById('dlg');
-const f=(l,h)=>`<label>${l}${h}</label>`;
-function openM(k,t0,p0){
-  pendNew='';pendImg='';t0=t0||st||1;const p1=p0||0;p0=p0||1;let h='';
-  if(k==='ing')h=`<h2>Registrar ingreso</h2><input type="hidden" id="a" value="${t0}">${f('Producto <small>(escribe para buscar; si no existe, se crea como producto nuevo)</small>',`<div style="display:flex;gap:8px"><input id="b" list="plist" autocomplete="off" placeholder="Escribe o elige un producto" value="${p1?esc(P[p1][0]):''}" oninput="sugLote()"><button type="button" class="sm" style="flex:none" onclick="scanInto('b')" aria-label="Escanear código de barras">📷</button></div><datalist id="plist">${Object.keys(P).map(k=>`<option value="${esc(P[k][0])}">`).join('')}</datalist>`)}<div id="np" style="display:none"><p class="note" id="nbc" style="margin:0 0 10px"></p>${f('Producto nuevo: unidad','<select id="u"><option value="und">Unidad (und)</option><option value="kg">Kilo (kg)</option></select>')}${f('Costo unitario (S/) <small>(opcional)</small>','<input id="g" type="number" min="0" step="any">')}<label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="lv" style="width:auto" onchange="sugLote()"> Este producto vence: llevar lote y fecha de vencimiento</label></div>${f('Cantidad','<input id="c" type="number" min="0" step="any">')}${f('Código de lote <small>(se genera solo; puedes cambiarlo por el del empaque)</small>','<input id="d" maxlength="20" oninput="this.dataset.m=1">')}${f('Fecha de vencimiento <small>(obligatoria en leche y yogurt)</small>','<input id="e" type="date">')}`;
-  if(k==='tra')h=`<h2>Registrar traslado</h2>${f('Tienda de origen',`<select id="a">${tO(t0)}</select>`)}${f('Tienda de destino',`<select id="b">${Object.keys(T).filter(k=>+k!==st).map(k=>`<option value="${k}">${T[k]}</option>`).join('')}</select>`)}${f('Producto',pS('c',p0,''))}${f('Cantidad','<input id="d" type="number" min="0" step="any">')}`;
-  if(k==='mer')h=`<h2>Registrar merma</h2><input type="hidden" id="a" value="${t0}">${f('Producto',pS('b',p0,''))}${f('Motivo','<select id="c"><option value="VENCIDO">Vencido</option><option value="DAÑADO">Dañado</option><option value="ROBO">Robo</option><option value="OTRO">Otro</option></select>')}${f('Cantidad','<input id="d" type="number" min="0" step="any">')}${f('Observación <small>(opcional)</small>','<input id="e" maxlength="200">')}`;
-  dlg.innerHTML=h+`<div class="err" id="err" role="alert"></div><div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="save('${k}')">Guardar</button></div>`;
-  dlg.showModal();if(k==='ing')sugLote();
-}
-const v=id=>document.getElementById(id).value.trim();
-function prodByName(t){t=String(t).trim().toLowerCase();const k=Object.keys(P).find(k=>P[k][0].toLowerCase()===t);return k?+k:0}
-function sugLote(){
-  const t=+document.getElementById('a').value,tx=document.getElementById('b').value,p=prodByName(tx),d=document.getElementById('d'),e=document.getElementById('e');
-  document.getElementById('np').style.display=tx.trim()&&!p?'block':'none';document.getElementById('nbc').textContent=pendNew?'Código de barras: '+pendNew:'';
-  const lp=LP.includes(p)||(!p&&!!tx.trim()&&document.getElementById('lv').checked);d.disabled=e.disabled=!lp;
-  if(!lp){d.value='';delete d.dataset.m;d.placeholder=p?'Este producto no lleva lote':'Producto nuevo: sin lote';return}
-  d.placeholder='';if(d.dataset.m)return;
-  const pre=(p===1?'L':p===11?'Y':(tx.trim()[0]||'P').toUpperCase())+t+'-'+TODAY.slice(2,4)+TODAY.slice(5,7);
-  d.value=pre+String.fromCharCode(65+L.filter(l=>l.cod.startsWith(pre)).length);
-}
-function setMin(t,p,x){x=+x;if(!(x>=0))return toast('El mínimo debe ser 0 o más.');MN[t+'-'+p]=x;render();toast('Stock mínimo actualizado')}
-function mermaLote(id){const l=L.find(x=>x.id===id);if(!l||l.act<=0)return;const q=l.act;stock[l.t+'-'+l.p]=r3(stock[l.t+'-'+l.p]-q);l.act=0;addK(l.t,l.p,5,q,'M'+nm);ME.push({id:nm++,f:TODAY+' 13:00',t:l.t,mo:'VENCIDO',p:l.p,q,obs:'Lote '+l.cod+' vencido',emp:'Registro nuevo'});render();toast('Lote '+l.cod+' pasado a merma')}
-function alerts(){
-  const a=L.filter(l=>ok(l.t)&&l.act>0&&days(l.v)<=30).sort((x,y)=>x.v<y.v?-1:1);
-  if(!a.length)return '';
-  return `<div class="card" style="margin-bottom:20px"><div class="ch">Alertas de vencimiento<span>Lotes vencidos o que vencen en 30 días</span></div>${a.map(l=>{const d=days(l.v);return `<div class="li"><span class="pi">${P[l.p][2]}</span><div>${P[l.p][0]}<small>Lote ${esc(l.cod)} · quedan ${nf(l.act)} ${P[l.p][1]}</small></div>${d<0?bd('Vencido hace '+(-d)+' d','bad')+` <button class="sm" onclick="mermaLote(${l.id})">Pasar a merma</button>`:bd(d===0?'Vence hoy':'Vence en '+d+' d','warn')}</div>`}).join('')}</div>`;
-}
-const fail=m=>{document.getElementById('err').textContent=m};
-function save(k){
-  if(k==='ing'){
-    const t=+v('a'),tx=v('b'),q=r3(+v('c')),cod=v('d'),ven=v('e');
-    if(!tx)return fail('Escribe o elige un producto.');
-    if(!(q>0))return fail('Escribe una cantidad mayor que 0.');
-    let p=prodByName(tx);const lv=!p&&document.getElementById('lv').checked;
-    if(lv&&(!cod||!ven))return fail('Este producto lleva lote: completa el código y la fecha de vencimiento.');
-    if(!p){p=Math.max(...Object.keys(P).map(Number))+1;if(lv)LP.push(p);P[p]=[tx,v('u')||'und',picHtml(pendImg)];PC[p]=Math.max(0,+v('g')||0);if(pendNew)BC[p]=pendNew;Object.keys(T).forEach(k=>stock[k+'-'+p]=0)}
-    if(LP.includes(p)){
-      if(!cod||!ven)return fail('Este producto lleva lote: completa el código y la fecha de vencimiento.');
-      const l=L.find(x=>x.t===t&&x.p===p&&x.cod===cod);
-      if(l&&l.v!==ven)return fail('Ese lote ya existe con otra fecha de vencimiento.');
-      addLot(t,p,cod,ven,q);
-    }
-    stock[t+'-'+p]=r3(stock[t+'-'+p]+q);addK(t,p,7,q,'I');toast('Ingreso registrado');
-  }
-  if(k==='tra'){
-    const o=+v('a'),d=+v('b'),p=+v('c'),q=r3(+v('d'));
-    if(o===d)return fail('El origen y el destino deben ser distintas tiendas.');
-    if(!(q>0))return fail('Escribe una cantidad mayor que 0.');
-    if(stock[o+'-'+p]<q)return fail(`En ${T[o]} solo hay ${nf(stock[o+'-'+p])} ${P[p][1]}.`);
-    let lots=[];
-    if(LP.includes(p)){const plan=take(o,p,q,true);if(!plan)return fail('No hay stock vigente suficiente: los lotes vencidos solo salen como merma.');
-      plan.forEach(([l,x])=>{l.act=r3(l.act-x);lots.push([l.cod,l.v,x])})}
-    stock[o+'-'+p]=r3(stock[o+'-'+p]-q);addK(o,p,3,q,'T'+nt);
-    TR.push({id:nt++,f:TODAY+' 13:00',o,d,items:[[p,q,lots]],emp:'Registro nuevo',est:'T'});view='tra';toast('Traslado en tránsito hacia '+T[d]);
-  }
-  if(k==='mer'){
-    const t=+v('a'),p=+v('b'),mo=v('c'),q=r3(+v('d'));
-    if(!(q>0))return fail('Escribe una cantidad mayor que 0.');
-    if(stock[t+'-'+p]<q)return fail(`En ${T[t]} solo hay ${nf(stock[t+'-'+p])} ${P[p][1]}.`);
-    if(LP.includes(p)){const plan=take(t,p,q,false);if(!plan)return fail('Las cantidades de los lotes no alcanzan.');plan.forEach(([l,x])=>l.act=r3(l.act-x))}
-    stock[t+'-'+p]=r3(stock[t+'-'+p]-q);addK(t,p,5,q,'M'+nm);
-    ME.push({id:nm++,f:TODAY+' 13:00',t,mo,p,q,obs:v('e'),emp:'Registro nuevo'});view='mer';toast('Merma registrada');
-  }
-  dlg.close();render();
-}
-/* ---- escáner de código de barras ---- */
-const sdlg=document.getElementById('sdlg');
-const cam={stream:null,t:0,on:false,ctl:null,zx:null,cb:null};
-let pend='',pendNew='',pendImg='',scans=[];
-const picHtml=u=>u&&/^https:\/\//.test(u)?`<img class="pimg" src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith('📦')">`:'📦';
-/* busca el código en Open Food Facts (gratis, sin clave): devuelve nombre y foto, o null si no lo encuentra */
-async function lookupCode(c){
+async function saveNuevo(id){
+  const v=k=>document.getElementById(k).value;
   try{
-    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),7000);
-    const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(c)+'.json?fields=product_name,product_name_es,brands,quantity,image_front_small_url,image_front_url',{signal:ctl.signal});
-    clearTimeout(to);const j=await r.json();
-    if(j.status!==1||!j.product)return null;
-    const p=j.product,b=(p.brands||'').split(',')[0].trim(),q=(p.quantity||'').trim();
-    let n=(p.product_name_es||p.product_name||'').trim();
-    if(b&&!n.toLowerCase().includes(b.toLowerCase()))n=n?n+' '+b:b;
-    if(n&&q&&!n.toLowerCase().includes(q.toLowerCase()))n+=' '+q;
-    const img=p.image_front_small_url||p.image_front_url||'';
-    return n||img?{n:n.slice(0,80),img}:null;
-  }catch(e){return null}
+    const r=await api({accion:'registrar_producto',id_solicitud:id,nombre:v('nnom'),id_categoria:v('ncat'),nueva_categoria:v('ncatn'),id_marca:v('nmar'),nueva_marca:v('nmarn'),id_unidad:v('nuni'),precio:v('npre'),se_vende_por_peso:v('npes')});
+    dlg.close();toast(r.mensaje);await load();
+  }catch(e){fail(e.message)}
 }
-const nz=s=>String(s).trim().replace(/^0+/,'');
-const byCode=c=>{const k=Object.keys(BC).find(p=>nz(BC[p])===nz(c));return k?+k:0};
-const pS=(id,s,x)=>`<div style="display:flex;gap:8px"><select id="${id}" ${x}>${pO(s)}</select><button type="button" class="sm" style="flex:none" onclick="scanInto('${id}')" aria-label="Escanear código de barras">📷</button></div>`;
-const scanMsg=m=>{document.getElementById('smsg').textContent=m};
-function beep(){try{navigator.vibrate&&navigator.vibrate(60);const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator();o.frequency.value=880;o.connect(a.destination);o.start();setTimeout(()=>{o.stop();a.close()},120)}catch(e){}}
-function stopCam(){
-  cam.on=false;clearTimeout(cam.t);
-  try{cam.ctl&&cam.ctl.stop&&cam.ctl.stop()}catch(e){}
-  try{cam.zx&&cam.zx.reset&&cam.zx.reset()}catch(e){}
-  cam.ctl=cam.zx=null;
-  if(cam.stream){cam.stream.getTracks().forEach(t=>t.stop());cam.stream=null}
-  document.getElementById('svid').srcObject=null;
+
+// ---- Traslados por recibir: el almacén cuenta lo que llegó y confirma ----
+function vRec(){
+  if(!REC.length)return head('Traslados por recibir')+'<div class="card empty">No hay traslados en camino hacia tu tienda.</div>';
+  return head('Traslados por recibir')+REC.map(t=>{
+    const rows=t.lineas.map(l=>`<tr><td>📦 ${esc(l.nombre_producto)}</td><td>${l.codigo_lote?esc(l.codigo_lote)+'<small>Vence '+fd(l.fecha_vencimiento)+'</small>':'—'}</td><td class="n">${nf(l.cantidad_enviada)} ${esc(l.unidad)}</td><td><input class="rcv" data-t="${Number(t.id_traslado)}" id="rc-${Number(l.id_detalle)}" type="number" min="0" max="${Number(l.cantidad_enviada)}" step="${l.se_vende_por_peso==='S'?'0.001':'1'}" value="${Number(l.cantidad_enviada)}" style="width:110px"></td></tr>`).join('');
+    return `<div class="card" style="margin-bottom:16px"><div class="ch">Traslado N.º ${Number(t.id_traslado)} · desde ${esc(t.origen)}<span>${esc(t.fecha)}</span></div>
+    ${t.observacion?`<p class="note" style="margin:6px 0">${esc(t.observacion)}</p>`:''}
+    <div class="tb"><table><thead><tr><th>Producto</th><th>Lote</th><th class="n">Enviado</th><th>Recibido</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <label>Observación <small>(obligatoria si llegó menos de lo enviado)</small><input id="rob-${Number(t.id_traslado)}" maxlength="200"></label>
+    <div class="row"><button class="pri" onclick="recibirTraslado(${Number(t.id_traslado)})">Confirmar recepción</button></div></div>`;
+  }).join('');
 }
-sdlg.addEventListener('close',()=>{cam.hold=false;document.getElementById('snew').innerHTML='';const m=cam.multi&&scans.length;stopCam();cam.cb=null;cam.multi=false;if(m)scanSummary()});
-function gotCode(c){
-  c=String(c||'').trim();if(!c||!cam.cb||cam.hold)return;
-  if(cam.multi&&document.getElementById('scont').checked){const n=Date.now();if(c===cam.lc&&n-cam.lt<1800)return;cam.lc=c;cam.lt=n;beep();addScan(c);return}
-  const cb=cam.cb;cam.cb=null;cam.multi=false;stopCam();sdlg.close();beep();cb(c);
-}
-const manualScan=()=>{const i=document.getElementById('sman'),c=i.value;cam.lc=0;gotCode(c);i.value='';if(sdlg.open)i.focus()};
-const loadZX=()=>new Promise((ok,no)=>{if(window.ZXing)return ok();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
-async function openScan(cb,multi){
-  cam.cb=cb;cam.multi=!!multi;cam.lc=0;scans=[];renderScan();document.getElementById('sopt').style.display=multi?'flex':'none';document.getElementById('sman').value='';scanMsg('Iniciando cámara…');sdlg.showModal();
-  if(!('ontouchstart' in window))document.getElementById('sman').focus();
-  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return scanMsg('La cámara solo funciona con HTTPS. Escribe el código o usa un lector USB.');
-  let s;
-  try{s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})}
-  catch(e){return scanMsg('No se pudo abrir la cámara (revisa el permiso). Escribe el código o usa un lector USB.')}
-  if(!sdlg.open||!cam.cb){s.getTracks().forEach(t=>t.stop());return}
-  cam.stream=s;const vd=document.getElementById('svid');vd.srcObject=s;
-  try{await vd.play()}catch(e){}
-  scanMsg('Apunta la cámara al código de barras');
+async function recibirTraslado(id){
+  const t=REC.find(x=>Number(x.id_traslado)===Number(id));if(!t)return;
+  const cantidades={};t.lineas.forEach(l=>{cantidades[l.id_detalle]=document.getElementById('rc-'+l.id_detalle).value});
   try{
-    if('BarcodeDetector' in window){
-      const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
-      cam.on=true;
-      const loop=async()=>{if(!cam.on)return;try{const r=await det.detect(vd);if(r.length){gotCode(r[0].rawValue);if(!cam.on)return}}catch(e){}cam.t=setTimeout(loop,150)};
+    const r=await api({accion:'recibir_traslado',id_traslado:id,cantidades,observacion:document.getElementById('rob-'+id).value});
+    toast(r.mensaje);await load();
+  }catch(e){toast(e.message)}
+}
+function openM(kind,preset=0){
+ const options=Object.keys(P).map(p=>`<option value="${p}" ${Number(p)===Number(preset)?'selected':''}>${esc(P[p][0])} (${esc(P[p][1])})</option>`).join('');
+ if(kind==='ing')dlg.innerHTML=`<h2>Registrar ingreso</h2><p class="note" style="margin:0">La operación actualizará stock, lote (si corresponde) y Kardex en MySQL.</p><label>Producto<select id="fprod">${options}</select></label><label>Cantidad<input id="fcant" type="number" min="0.001" step="0.001" placeholder="Ej. 12"></label><label>Código de lote <small>(opcional; obligatorio si el producto ya se controla por lotes)</small><input id="flote" maxlength="20" placeholder="Código del empaque"></label><label>Fecha de vencimiento <small>(si ingresas un lote)</small><input id="fvence" type="date"></label><label>Observación <small>(opcional)</small><input id="fobs" maxlength="200" placeholder="Proveedor, documento, detalle…"></label><div class="err" id="err" role="alert"></div><div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="save('ing')">Guardar ingreso</button></div>`;
+ if(kind==='mer')dlg.innerHTML=`<h2>Registrar merma</h2><p class="note" style="margin:0">La cantidad se descontará del stock y quedará registrada en el Kardex.</p><label>Producto<select id="fprod">${options}</select></label><label>Motivo<select id="fmotivo"><option value="VENCIDO">Vencido</option><option value="DAÑADO">Dañado</option><option value="ROBO">Robo</option><option value="OTRO">Otro</option></select></label><label>Cantidad<input id="fcant" type="number" min="0.001" step="0.001" placeholder="Ej. 2"></label><label>Observación <small>(opcional)</small><input id="fobs" maxlength="200" placeholder="Detalle de la merma"></label><div class="err" id="err" role="alert"></div><div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="save('mer')">Guardar merma</button></div>`;
+ dlg.showModal();
+}
+async function save(kind){const id=Number(document.getElementById('fprod')?.value),q=document.getElementById('fcant')?.value,obs=document.getElementById('fobs')?.value||'';if(!id||!q||Number(q)<=0)return fail('Selecciona un producto e ingresa una cantidad mayor que cero.');const data={accion:kind==='ing'?'ingreso':'merma',id_producto:id,cantidad:q,observacion:obs};if(kind==='ing'){data.codigo_lote=document.getElementById('flote').value.trim();data.fecha_vencimiento=document.getElementById('fvence').value||''}else data.motivo=document.getElementById('fmotivo').value;const btn=dlg.querySelector('button.pri');btn.disabled=true;btn.textContent='Guardando…';try{const r=await api(data);dlg.close();toast(r.mensaje);await load()}catch(e){fail(e.message);btn.disabled=false;btn.textContent=kind==='ing'?'Guardar ingreso':'Guardar merma'}}
+async function setMin(p,x){try{const r=await api({accion:'stock_minimo',id_producto:p,stock_minimo:x});toast(r.mensaje);await load()}catch(e){toast(e.message);await load()}}
+async function mermaLote(id){const l=L.find(x=>x.id===id);if(!l||l.act<=0)return;if(!confirm(`¿Registrar como merma las ${nf(l.act)} unidades del lote ${l.cod}?`))return;try{const r=await api({accion:'merma_lote',id_lote:id,observacion:'Baja por vencimiento del lote '+l.cod});toast(r.mensaje);await load()}catch(e){toast(e.message)}}
+function openProd(p,c){const l=L.filter(x=>x.p===p&&x.act>0).sort((a,b)=>a.v.localeCompare(b.v))[0];dlg.innerHTML=`<h2>📦 ${esc(P[p][0])}</h2><p class="note">Código de barras: ${esc(c||BC[p]||'Sin código')}</p><div class="card" style="margin-top:12px"><div class="li"><div>Stock actual</div><b>${nf(stk(p))} ${P[p][1]}</b></div><div class="li"><div>Stock mínimo</div><b>${nf(min(p))} ${P[p][1]}</b></div></div>${l?`<p class="note">Vence primero: lote ${esc(l.cod)} · ${fd(l.v)}</p>`:''}<div class="pact"><button class="sm" onclick="dlg.close();openM('ing',${p})">Ingreso</button><button class="sm" onclick="dlg.close();openM('mer',${p})">Merma</button><button class="sm" onclick="dlg.close()">Cerrar</button></div>`;dlg.showModal()}
+// Escáner de códigos. Tres formas de leer el código, de la más directa a la de respaldo:
+// 1) Cámara en vivo (solo si el navegador la permite: HTTPS o localhost).
+// 2) Foto del código con la cámara del celular (funciona en HTTP dentro de la red local).
+// 3) Campo manual o lector USB.
+let stream=null,detector=null,scanTimer=null,zxingReader=null;
+function scanGlobal(){
+  document.getElementById('sman').value='';
+  document.getElementById('smsg').textContent='Apunta la cámara al código, toma una foto del código o escribe el número.';
+  sdlg.showModal();
+  startCamera();
+}
+let zxingControls=null;
+async function startCamera(){
+  const v=document.getElementById('svid');
+  const msg=document.getElementById('smsg');
+  if(!navigator.mediaDevices?.getUserMedia){
+    v.style.display='none';
+    msg.textContent='La cámara en vivo necesita una conexión segura (HTTPS). Mientras tanto usa "Tomar foto del código" o escribe el número.';
+    return;
+  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    if(!sdlg.open){stopCamera();return}
+    v.style.display='';
+    v.srcObject=stream;
+    await v.play();
+    if('BarcodeDetector'in window){
+      detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
+      const loop=async()=>{
+        if(!stream)return;
+        try{
+          const codes=await detector.detect(v);
+          if(codes.length){
+            if(enviarCodigo(codes[0].rawValue))return;
+            await new Promise(r=>setTimeout(r,1200));
+          }
+        }catch(_){}
+        scanTimer=setTimeout(loop,180);
+      };
       loop();
+    }else if(window.ZXing){
+      // Navegadores sin BarcodeDetector: ZXing lee los códigos directamente del video
+      zxingReader=zxingReader||new ZXing.BrowserMultiFormatReader();
+      zxingControls=await zxingReader.decodeFromVideoElement(v,(res)=>{
+        if(res&&sdlg.open)enviarCodigo(res.getText());
+      });
     }else{
-      scanMsg('Cargando lector…');await loadZX();
-      if(!cam.stream)return;
-      const rd=new ZXing.BrowserMultiFormatReader();cam.zx=rd;
-      const c=rd.decodeFromStream(cam.stream,vd,r=>{if(r)gotCode(r.getText())});
-      cam.ctl=await c;scanMsg('Apunta la cámara al código de barras');
+      msg.textContent='El lector de códigos no se cargó. Escribe el número o usa "Tomar foto del código".';
     }
-  }catch(e){scanMsg('Este navegador no pudo leer códigos con la cámara. Escribe el código o usa un lector USB.')}
-}
-/* qué hacer con un código leído */
-const scanGlobal=()=>openScan(handleCode,true);
-function askNew(c){
-  cam.hold=true;cam.nc=c;
-  document.getElementById('snew').innerHTML=`<div class="card" style="padding:14px;margin-top:12px;border-color:var(--red)"><b>Código nuevo</b><div class="note" style="margin:2px 0 0">${esc(c)} no está en la lista. Agrégalo ahora:</div><div id="sinfo" class="note" style="margin:8px 0 0"></div>
-  <label>Nombre del producto<input id="sn" maxlength="80" autocomplete="off" placeholder="Ej. Fideos Don Vittorio 500 g" onkeydown="if(event.key==='Enter'){event.preventDefault();saveScanNew()}"></label>
-  <label>Cantidad que ingresa<input id="sq" type="number" min="0" step="any" inputmode="decimal" value="1" onkeydown="if(event.key==='Enter'){event.preventDefault();saveScanNew()}"></label>
-  <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--mute)">Más opciones (unidad, costo, vencimiento)</summary>
-  <label>Unidad<select id="su"><option value="und">Unidad (und)</option><option value="kg">Kilo (kg)</option></select></label>
-  <label>Costo unitario (S/) <small>(opcional)</small><input id="sg" type="number" min="0" step="any" inputmode="decimal"></label>
-  <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="sl" style="width:auto"> Este producto vence (lleva lote)</label>
-  <label>Fecha de vencimiento <small>(si lleva lote)</small><input id="sv" type="date"></label></details>
-  <div class="err" id="serr" role="alert"></div><div class="row"><button class="sm" onclick="skipScanNew()">Omitir</button><button class="pri sm" onclick="saveScanNew()">Agregar producto</button></div></div>`;
-  scanMsg('Código nuevo: completa los datos para agregarlo');
-  const e=document.getElementById('sn');if(e)e.focus();
-  cam.img='';const c0=c;document.getElementById('sinfo').textContent='🔎 Buscando en internet…';
-  lookupCode(c).then(r=>{
-    if(!cam.hold||cam.nc!==c0)return;const i=document.getElementById('sinfo'),sn=document.getElementById('sn');if(!i||!sn)return;
-    if(!r){i.textContent='No se encontró en internet. Escribe el nombre.';return}
-    if(!sn.value.trim())sn.value=r.n;cam.img=r.img;
-    i.innerHTML=(r.img?picHtml(r.img)+' ':'')+'Encontrado en internet · revisa el nombre';
-  });
-}
-function skipScanNew(){cam.hold=false;cam.lt=Date.now();cam.lc=cam.nc;document.getElementById('snew').innerHTML='';scanMsg('Omitido · sigue escaneando')}
-function saveScanNew(){
-  const g=id=>document.getElementById(id).value.trim(),er=m=>{document.getElementById('serr').textContent=m};
-  const n=g('sn'),q=r3(+g('sq')||0),u=g('su')||'und',co=Math.max(0,+g('sg')||0),lv=document.getElementById('sl').checked,ven=g('sv');
-  if(!n)return er('Escribe el nombre del producto.');
-  if(prodByName(n))return er('Ya existe un producto con ese nombre.');
-  if(lv&&q>0&&!ven)return er('Este producto lleva lote: pon la fecha de vencimiento.');
-  const p=Math.max(...Object.keys(P).map(Number))+1,t=st||1;
-  P[p]=[n,u,picHtml(cam.img)];PC[p]=co;BC[p]=cam.nc;Object.keys(T).forEach(k=>stock[k+'-'+p]=0);
-  if(lv)LP.push(p);
-  if(q>0){
-    if(lv)addLot(t,p,n[0].toUpperCase()+t+'-'+TODAY.slice(2,4)+TODAY.slice(5,7)+'A',ven,q);
-    stock[t+'-'+p]=q;addK(t,p,7,q,'I');
+  }catch(_){
+    v.style.display='none';
+    msg.textContent='No se pudo abrir la cámara. Revisa el permiso de cámara del navegador o escribe el número.';
   }
-  const x={k:'p'+p,p,c:cam.nc,n:1};scans.unshift(x);
-  cam.hold=false;cam.lt=Date.now();cam.lc=cam.nc;document.getElementById('snew').innerHTML='';
-  render();renderScan();scanMsg('✔ '+n+' agregado'+(q>0?' ('+nf(q)+' '+u+')':'')+' · sigue escaneando');beep();
 }
-function addScan(c){const p=byCode(c);if(!p)return askNew(c);const k='p'+p;let x=scans.find(y=>y.k===k);if(x)scans=scans.filter(y=>y!==x);else x={k,p,c,n:0};x.n++;scans.unshift(x);renderScan();scanMsg('✔ '+(p?P[p][0]:'Código '+c+' (sin registrar)')+' · sigue escaneando')}
-function scanN(i,d){const x=scans[i];if(!x)return;x.n+=d;if(x.n<1)scans.splice(i,1);renderScan()}
-function linkScan(i){const c=scans[i].c;cam.multi=false;sdlg.close();openLink(c)}
-function renderScan(){
-  const e=document.getElementById('slist'),t=scans.reduce((a,x)=>a+x.n,0);
-  e.innerHTML=scans.length?`<div class="note" style="margin:10px 0 4px"><b>${scans.length}</b> productos · <b>${t}</b> lecturas</div><div class="card" style="max-height:190px;overflow:auto">${scans.map((x,i)=>`<div class="li" style="padding:9px 14px"><span class="pi">${x.p?P[x.p][2]:'❓'}</span><div>${x.p?esc(P[x.p][0]):'Sin registrar'}<small>${esc(x.c)}</small></div>${x.p?'':`<button class="sm" onclick="linkScan(${i})">Agregar</button>`}<button class="sm" onclick="scanN(${i},-1)" aria-label="Quitar uno">−</button><b>${x.n}</b><button class="sm" onclick="scanN(${i},1)" aria-label="Agregar uno">+</button></div>`).join('')}</div>`:'';
+function stopCamera(){
+  if(scanTimer)clearTimeout(scanTimer);
+  scanTimer=null;
+  if(zxingControls&&typeof zxingControls.stop==='function')zxingControls.stop();
+  zxingControls=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  const v=document.getElementById('svid');
+  if(v)v.srcObject=null;
 }
-function scanSummary(){
-  const t=scans.reduce((a,x)=>a+x.n,0);
-  dlg.innerHTML=`<h2>Escaneo terminado</h2><p class="note" style="margin:0">${scans.length} productos · ${t} lecturas</p><div class="card" style="margin-top:12px;max-height:50vh;overflow:auto">${scans.map(x=>`<div class="li"><span class="pi">${x.p?P[x.p][2]:'❓'}</span><div>${x.p?esc(P[x.p][0]):'Código sin registrar'}<small>${x.p?'En stock: '+nf(stk(x.p))+' '+P[x.p][1]:esc(x.c)}</small></div><b>×${x.n}</b><button class="sm" onclick="dlg.close();${x.p?`openProd(${x.p},'${esc(x.c)}')`:`openLink('${esc(x.c)}')`}">${x.p?'Abrir':'Agregar'}</button></div>`).join('')}</div><div class="pact"><button class="sm" onclick="dlg.close()">Cerrar</button></div>`;
+sdlg.addEventListener('close',stopCamera);
+// Lee una foto tomada con la cámara del celular y decodifica el código con ZXing
+async function leerFoto(input){
+  const f=input.files&&input.files[0];
+  input.value='';
+  if(!f)return;
+  const msg=document.getElementById('smsg');
+  if(!window.ZXing){msg.textContent='No se cargó el lector de códigos. Revisa tu conexión a internet o escribe el número.';return}
+  msg.textContent='Leyendo la foto…';
+  const url=URL.createObjectURL(f);
+  try{
+    zxingReader=zxingReader||new ZXing.BrowserMultiFormatReader();
+    const res=await zxingReader.decodeFromImageUrl(url);
+    const texto=typeof res.getText==='function'?res.getText():res.text;
+    enviarCodigo(texto);
+  }catch(_){
+    msg.textContent='No se pudo leer el código de la foto. Acércate, enfoca bien y con buena luz, o escribe el número.';
+  }finally{
+    URL.revokeObjectURL(url);
+  }
+}
+// Busca el código en el catálogo. Si existe, abre el ingreso con el producto ya elegido.
+let ultimoAvisoCodigo={c:'',t:0};
+// Código que no está en el catálogo: se envía la solicitud al administrador de ESTA tienda (una sola vez por código)
+async function avisarCodigoNuevo(c){
+  const msg=document.getElementById('smsg');
+  if(ultimoAvisoCodigo.c===c&&Date.now()-ultimoAvisoCodigo.t<20000)return;
+  ultimoAvisoCodigo={c,t:Date.now()};
+  msg.textContent='Producto no registrado. Enviando solicitud al administrador…';
+  try{
+    const r=await api({accion:'solicitar_producto',codigo:c});
+    msg.textContent=r.mensaje;
+    await load(true);
+  }catch(e){msg.textContent=e.message}
+}
+function enviarCodigo(raw){
+  const c=String(raw||'').trim();
+  if(!c){document.getElementById('smsg').textContent='Escribe o escanea un código.';return false}
+  const p=Object.keys(BC).find(k=>String(BC[k])===c);
+  if(p){sdlg.close();openIngresoEscaneado(Number(p),c);return true}
+  avisarCodigoNuevo(c);
+  return false;
+}
+function manualScan(){enviarCodigo(document.getElementById('sman').value)}
+// Ingreso directo para el producto escaneado: muestra nombre y código en grande y pide solo la cantidad.
+// Los campos de lote y vencimiento aparecen solo si el producto ya se controla por lotes en esta tienda.
+function openIngresoEscaneado(p,c){
+  const codigo=c||BC[p]||'Sin código';
+  const usaLotes=L.some(l=>l.p===p);
+  const campoLote=usaLotes
+    ?`<label>Código de lote <small>(obligatorio: este producto se controla por lotes)</small><input id="flote" maxlength="20" placeholder="Código del empaque"></label><label>Fecha de vencimiento<input id="fvence" type="date"></label>`
+    :`<input type="hidden" id="flote" value=""><input type="hidden" id="fvence" value="">`;
+  dlg.innerHTML=`<h2>Registrar ingreso</h2>
+  <div class="card" style="margin:10px 0 4px;padding:12px">
+    <div class="note" style="margin:0">Producto escaneado</div>
+    <div style="font-size:20px;font-weight:700;margin-top:4px">${esc(P[p][0])}</div>
+    <div style="font-size:16px;margin-top:6px">Código de barras: <b style="letter-spacing:1px">${esc(codigo)}</b></div>
+    <div class="note" style="margin:6px 0 0">Stock actual: ${nf(stk(p))} ${esc(P[p][1])}</div>
+  </div>
+  <input type="hidden" id="fprod" value="${p}">
+  <label>Cantidad que entra (${esc(P[p][1])})<input id="fcant" type="number" min="0.001" step="0.001" placeholder="Ej. 12" inputmode="decimal"></label>
+  ${campoLote}
+  <label>Observación <small>(opcional)</small><input id="fobs" maxlength="200" placeholder="Proveedor, documento, detalle…"></label>
+  <div class="err" id="err" role="alert"></div>
+  <div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="save('ing')">Guardar ingreso</button></div>`;
   dlg.showModal();
 }
-function handleCode(c){const p=byCode(c);p?openProd(p,c):openLink(c)}
-function scanInto(id){openScan(c=>{const p=byCode(c);const s=document.getElementById(id);if(!p){if(s.tagName==='INPUT'){pendNew=c;pendImg='';s.value='';s.focus();sugLote();lookupCode(c).then(r=>{if(!r||pendNew!==c)return;if(!s.value.trim()){s.value=r.n;sugLote()}pendImg=r.img;toast('Encontrado en internet: '+r.n)});return toast('Código nuevo: buscando en internet…')}return toast('Código '+c+' no registrado. Créalo desde Ingreso o con el botón Escanear de arriba.')}pendNew='';if(s.tagName==='INPUT'){s.value=P[p][0];sugLote()}else{s.value=p;if(s.onchange)s.onchange()}toast(P[p][0])})}
-function scanFilter(){openScan(c=>{const p=byCode(c);if(!p)return openLink(c);if(view==='lot'&&!LP.includes(p))return toast(P[p][0]+' no lleva lote.');fp=p;render();toast(P[p][0])})}
-function openProd(p,c){
-  const rows=Object.keys(T).map(Number).filter(ok).map(t=>{const q=stock[t+'-'+p];return `<div class="li"><div>Stock actual</div><b>${nf(q)} ${P[p][1]}</b>${q<=min(p,t)?bd('Reponer','warn'):''}</div>`}).join('');
-  const ls=LP.includes(p)?L.filter(l=>l.p===p&&l.act>0).sort((a,b)=>a.v<b.v?-1:1):[];
-  const l0=ls[0],lt=l0?`<p class="note" style="margin:10px 0 0">Vence primero: lote ${esc(l0.cod)} · ${fd(l0.v)} (${days(l0.v)<0?'vencido':'en '+days(l0.v)+' d'})</p>`:'';
-  dlg.innerHTML=`<h2>${P[p][2]} ${esc(P[p][0])}</h2><p class="note" style="margin:0">Código ${esc(c)}</p><div class="card" style="margin-top:12px">${rows}</div>${lt}<div class="pact"><button class="sm" onclick="dlg.close();openM('ing',0,${p})">Ingreso</button><button class="sm" onclick="dlg.close();openM('mer',0,${p})">Merma</button><button class="sm" onclick="dlg.close()">Cerrar</button></div>`;
-  dlg.showModal();
+// Se actualiza sola: cada 5 s y al volver a la pestaña. No se refresca mientras hay un formulario abierto.
+function marcarEstado(t){ const e=document.getElementById('estado-refresco'); if(e) e.textContent=t; }
+function refrescar(){
+  if(dlg.open || (sdlg && sdlg.open) || (document.activeElement && document.activeElement.closest && document.activeElement.closest('#main') && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) { marcarEstado('Pausado mientras tienes un formulario abierto'); return; }
+  load(true);
 }
-function openLink(c){
-  pend=c;
-  dlg.innerHTML=`<h2>Código no registrado</h2><p style="color:var(--mute);margin:0">El código <b>${esc(c)}</b> no está en el sistema. Pon el nombre y la cantidad para agregarlo.</p>${f('Nombre del producto','<input id="nn" maxlength="80" autocomplete="off" placeholder="Ej. Fideos Don Vittorio 500 g">')}${f('Cantidad que ingresa','<input id="nq" type="number" min="0" step="any" inputmode="decimal">')}<details style="margin-top:12px"><summary style="cursor:pointer;color:var(--mute)">Más opciones (unidad, costo, vencimiento)</summary>${f('Unidad','<select id="nu"><option value="und">Unidad (und)</option><option value="kg">Kilo (kg)</option></select>')}${f('Costo unitario (S/) <small>(opcional)</small>','<input id="ng" type="number" min="0" step="any" inputmode="decimal">')}<label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:10px"><input type="checkbox" id="nlv" style="width:auto"> Este producto vence: pedir lote y fecha de vencimiento</label></details><div class="err" id="err" role="alert"></div><div class="row"><button onclick="dlg.close()">Cancelar</button><button class="pri" onclick="saveNew()">Agregar</button></div><p class="note" style="margin:12px 0 0;text-align:center">¿Ya existe en la lista? <a href="#" onclick="event.preventDefault();openLinkExisting()" style="color:var(--red)">Asociar el código a un producto existente</a></p>`;
+async function init(){
+  const e=document.createElement('div'); e.id='estado-refresco';
+  e.style.cssText='position:fixed;bottom:8px;right:12px;font:12px system-ui,sans-serif;color:#666;background:#fffffff0;padding:3px 8px;border-radius:6px;z-index:50';
+  document.body.appendChild(e);
+  await load(); setInterval(refrescar, 5000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refrescar(); });
+}
+init();
+// ===== Avisos para el almacén (por ejemplo, producto eliminado por el administrador) =====
+const AVISOS={ultimo:-1};
+function mostrarAvisoAlmacen(texto){
+  let caja=document.getElementById('avisos-almacen');
+  if(!caja){
+    caja=document.createElement('div');
+    caja.id='avisos-almacen';
+    caja.style.cssText='position:fixed;top:78px;right:14px;width:min(380px,92vw);z-index:70;display:flex;flex-direction:column;gap:8px';
+    document.body.appendChild(caja);
+  }
+  const item=document.createElement('div');
+  item.style.cssText='background:#7f1d1d;color:#fff;padding:12px 14px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);font:14px system-ui,sans-serif;display:flex;gap:10px;align-items:flex-start';
+  item.innerHTML='<span style="flex:1">🔔 '+esc(texto)+'</span><button style="background:transparent;color:#fff;border:0;font-size:16px;cursor:pointer" aria-label="Cerrar">✕</button>';
+  item.querySelector('button').onclick=()=>item.remove();
+  caja.prepend(item);
+}
+async function sondearAvisosAlmacen(){
+  try{
+    const r=await fetch('index.php?r=stock_notificaciones&after='+AVISOS.ultimo,{cache:'no-store',headers:{'Accept':'application/json'}});
+    const j=await r.json();
+    if(j.ok){
+      if(AVISOS.ultimo<0){
+        AVISOS.ultimo=j.data.ultimo;
+      }else{
+        j.data.avisos.forEach(a=>{AVISOS.ultimo=Math.max(AVISOS.ultimo,a.id);mostrarAvisoAlmacen(a.mensaje)});
+        AVISOS.ultimo=Math.max(AVISOS.ultimo,j.data.ultimo);
+      }
+    }
+  }catch(_){}
+  setTimeout(sondearAvisosAlmacen,5000);
+}
+sondearAvisosAlmacen();
+
+// ===== Escáner de celular: el celular lee el código y el código llega al administrador (panel → Escaneos del celular) =====
+const CEL={token:'',ultimo:0,activo:false,conectado:false,oculto:false,base:''};
+// Dirección que usará el celular. Prioridad: ALMACEN_ESCANER_URL_BASE del .env > la que se pegó en este formulario > la de esta pestaña.
+const BASE_LS='mass_almacen_base_publica';
+const hostLocal=h=>/^(localhost|127\.|\[::1\]$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(h)||/\.(test|local|localhost)$/i.test(h);
+function baseGuardada(){try{return localStorage.getItem(BASE_LS)||''}catch(_){return ''}}
+function urlCelular(){
+  const b=CEL.base||baseGuardada();
+  const raiz=b?b.replace(/\/+$/,'')+'/':new URL('./',location.href).href;
+  return raiz+'escaner.html?t='+encodeURIComponent(CEL.token);
+}
+function estadoUrlCelular(){const u=new URL(urlCelular());return{https:u.protocol==='https:',local:hostLocal(u.hostname)}}
+function usarBasePublica(){
+  const v=(document.getElementById('base-pub').value||'').trim().replace(/\/+$/,'');
+  let u;try{u=new URL(v)}catch(_){u=null}
+  if(!u||u.protocol!=='https:'||hostLocal(u.hostname)){toast('Pega la dirección https que muestra el túnel (por ejemplo https://algo.trycloudflare.com).');return}
+  try{localStorage.setItem(BASE_LS,u.origin+(u.pathname==='/'?'':u.pathname.replace(/\/+$/,'')))}catch(_){}
+  mostrarQR();
+}
+function quitarBasePublica(){try{localStorage.removeItem(BASE_LS)}catch(_){}mostrarQR()}
+async function conectarCelular(){
+  try{
+    const r=await fetch('index.php?r=escaner_vincular',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'Accept':'application/json'},body:'{}'});
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw new Error(j.mensaje||'No se pudo crear el enlace del celular.');
+    CEL.token=j.data.token;CEL.ultimo=j.data.desde;CEL.base=j.data.base||'';CEL.oculto=false;
+    mostrarQR();
+    if(!CEL.activo){CEL.activo=true;sondearCelular()}
+    pintarFeed();
+  }catch(e){toast(e.message)}
+}
+function mostrarQR(){
+  const est=estadoUrlCelular(),sirve=est.https&&!est.local,conf=!!CEL.base;
+  const aviso=sirve?`<p class="note" style="margin:0;color:#157f3b">✔ Dirección segura (https): el celular puede usar la cámara sin cable.${conf?'':` <a href="#" onclick="quitarBasePublica();return false">Cambiar</a>`}</p>`
+   :`<div style="background:#fff4e5;border:1px solid #f0b35c;border-radius:10px;padding:10px;margin:0 0 8px;color:#6b4200;font-size:13px">
+      <b>Este QR todavía no sirve para un celular sin cable.</b> ${est.local?'Apunta a esta computadora (localhost / red local)':'No es https'}, y la cámara del celular exige https.
+      <ol style="margin:6px 0 6px 18px;padding:0"><li>En la PC ejecuta <code>iniciar_tunel_almacen.bat</code> (o <code>cloudflared tunnel --url http://localhost:8000</code>).</li>
+      <li>Copia la dirección <code>https://…trycloudflare.com</code> que aparece y pégala aquí:</li></ol>
+      <div style="display:flex;gap:6px"><input id="base-pub" placeholder="https://xxxx.trycloudflare.com" style="flex:1;min-width:0"><button class="sm" onclick="usarBasePublica()">Usar</button></div></div>`;
+  dlg.innerHTML=`<h2>Conectar celular del almacén</h2>
+  <p class="note" style="margin:0 0 8px">Abre la cámara normal del celular y escanea este código. Se abre el escáner del almacén, sin iniciar sesión y sin cable. Los códigos que escanee se registran en el ingreso de almacén.</p>
+  ${aviso}
+  <div id="qr-celular" style="background:#fff;border-radius:12px;padding:10px;margin:12px auto;width:max-content"></div>
+  <p class="note" style="word-break:break-all;margin:0">${esc(urlCelular())}</p>
+  <div class="row"><button onclick="dlg.close()">Cerrar</button></div>`;
   if(!dlg.open)dlg.showModal();
-  pendImg='';
-  lookupCode(c).then(r=>{
-    if(!r||pend!==c||!dlg.open)return;const e=document.getElementById('nn');if(!e)return;
-    if(!e.value.trim())e.value=r.n;pendImg=r.img;toast('Encontrado en internet: '+r.n);
-  });
+  const caja=document.getElementById('qr-celular');
+  if(!window.QRCode){caja.innerHTML='<p class="err" style="margin:0">No se cargó el generador de QR. Revisa la conexión a internet y recarga la página.</p>';return}
+  caja.innerHTML='';
+  new QRCode(caja,{text:urlCelular(),width:240,height:240,correctLevel:QRCode.CorrectLevel.M});
 }
-function openLinkExisting(){
-  dlg.innerHTML=`<h2>Asociar código</h2><p style="color:var(--mute);margin:0">El código <b>${esc(pend)}</b> pasará a pertenecer al producto que elijas:</p>${f('Producto',`<select id="lp">${pO(1)}</select>`)}<div class="row"><button onclick="openLink(pend)">Atrás</button><button class="pri" onclick="saveLink()">Asociar</button></div>`;
+async function sondearCelular(){
+  if(!CEL.activo)return;
+  try{
+    const r=await fetch('index.php?r=escaner_pendientes&after='+CEL.ultimo,{cache:'no-store',headers:{'Accept':'application/json'}});
+    const j=await r.json();
+    if(j.ok){
+      CEL.conectado=!!j.data.celular;
+      j.data.codigos.forEach(c=>{CEL.ultimo=Math.max(CEL.ultimo,c.id);procesarCodigoCelular(c.codigo)});
+      pintarFeed();
+    }
+  }catch(_){}
+  setTimeout(sondearCelular,2000);
 }
-function saveNew(){
-  const n=v('nn'),q=r3(+v('nq')||0),u=v('nu')||'und',g=Math.max(0,+v('ng')||0),lv=document.getElementById('nlv').checked;
-  if(!n)return fail('Escribe el nombre del producto.');
-  if(prodByName(n))return fail('Ya existe un producto con ese nombre. Usa "Asociar el código a un producto existente".');
-  const p=Math.max(...Object.keys(P).map(Number))+1,t=st||1;
-  if(lv)LP.push(p);
-  P[p]=[n,u,picHtml(pendImg)];PC[p]=g;BC[p]=pend;
-  Object.keys(T).forEach(k=>stock[k+'-'+p]=0);
-  dlg.close();render();
-  if(q>0&&lv){openM('ing',t,p);document.getElementById('c').value=q;sugLote();return toast('Producto creado. Completa el lote y la fecha de vencimiento.')}
-  if(q>0){stock[t+'-'+p]=q;addK(t,p,7,q,'I');render();return toast(n+': ingresaron '+nf(q)+' '+u)}
-  toast('Producto creado: '+n);openProd(p,pend);
+// Solo muestra si el celular está conectado. Cada código que llega se procesa igual que uno escaneado con la cámara.
+function procesarCodigoCelular(c){
+  if(dlg.open){toast('Código del celular: '+c+' (cierre el formulario abierto para registrarlo)');return}
+  enviarCodigo(c);
 }
-function saveLink(){const p=+document.getElementById('lp').value;BC[p]=pend;dlg.close();render();toast('Código asociado a '+P[p][0]);openProd(p,pend)}
-/* lector USB / Bluetooth: escribe los dígitos muy rápido y termina con Enter; funciona en cualquier pantalla */
-let wb='',wt=0;
-document.addEventListener('keydown',e=>{
-  if(document.querySelector('dialog[open]'))return;
-  if(e.target&&/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
-  if(e.ctrlKey||e.metaKey||e.altKey)return;
-  const n=Date.now();if(n-wt>80)wb='';wt=n;
-  if(e.key==='Enter'){if(wb.length>=6){e.preventDefault();const c=wb;wb='';handleCode(c)}wb='';return}
-  if(e.key.length===1)wb+=e.key;
-});
-const init=()=>{render()};
-function setStore(k){st=+k;try{sessionStorage.setItem('mass_tienda',k)}catch(e){}dlg.close();init()}
-function pickStore(){dlg.innerHTML=`<h2>Elige tu tienda</h2><p class="note" style="margin:0 0 6px">Normalmente la tienda llega desde el inicio de sesión.</p>${Object.keys(T).map(k=>`<button class="pri" style="display:block;width:100%;margin-top:8px" onclick="setStore(${k})">${T[k]}</button>`).join('')}`;dlg.addEventListener('cancel',e=>e.preventDefault(),{once:true});dlg.showModal()}
-if(!st)st=1;init();
+function pintarFeed(){
+  let box=document.getElementById('feed-celular');
+  if(!box){
+    box=document.createElement('div');
+    box.id='feed-celular';
+    box.style.cssText='position:fixed;right:12px;bottom:40px;width:min(340px,92vw);z-index:40;background:#fff;color:#111;border:1px solid #ddd;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;display:none;font:14px system-ui,sans-serif';
+    document.body.appendChild(box);
+  }
+  if(!CEL.token||CEL.oculto){box.style.display='none';return}
+  box.style.display='block';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div><b>${CEL.conectado?'📱 Celular conectado':'📱 Esperando el celular…'}</b>
+    <div class="note" style="margin:2px 0 0">Los códigos escaneados se registran en el ingreso de almacén.</div></div>
+    <span><button class="sm" onclick="conectarCelular()">Nuevo QR</button> <button class="sm" onclick="CEL.oculto=true;pintarFeed()">✕</button></span></div>`;
+}

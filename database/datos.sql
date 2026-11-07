@@ -79,7 +79,8 @@ INSERT INTO tipo_movimiento (id_tipo_movimiento, nombre_movimiento, efecto) VALU
     (3, 'TRASLADO DE SALIDA', 'S'),
     (4, 'TRASLADO DE ENTRADA', 'E'),
     (5, 'MERMA', 'S'),
-    (6, 'DEVOLUCION DE CLIENTE', 'E');
+    (6, 'DEVOLUCION DE CLIENTE', 'E'),
+    (7, 'INGRESO DE MERCADERIA', 'E');
 
 -- ===== NIVEL 2 =====
 

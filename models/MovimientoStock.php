@@ -1,5 +1,5 @@
 <?php
-// M: tabla movimiento_stock: kardex: cada cambio de stock con exactamente un origen (venta, traslado, merma o devolución).
+// M: tabla movimiento_stock: kardex: cada cambio de stock con exactamente un origen (venta, traslado, merma, devolución o ingreso).
 class MovimientoStock
 {
     public function __construct(
@@ -16,6 +16,7 @@ class MovimientoStock
         public ?int $idTraslado,   // origen (uno solo)
         public ?int $idMerma,   // origen (uno solo)
         public ?int $idDevolucion,   // origen (uno solo)
+        public ?int $idIngreso,   // origen (uno solo)
         public ?int $idLote   // lote afectado (solo productos con lote)
     ) {}
 
@@ -36,13 +37,14 @@ class MovimientoStock
             $fila['id_traslado'] === null ? null : (int)$fila['id_traslado'],
             $fila['id_merma'] === null ? null : (int)$fila['id_merma'],
             $fila['id_devolucion'] === null ? null : (int)$fila['id_devolucion'],
+            $fila['id_ingreso'] === null ? null : (int)$fila['id_ingreso'],
             $fila['id_lote'] === null ? null : (int)$fila['id_lote']
         );
     }
 
-    // exactamente un origen: venta, traslado, merma o devolución
+    // exactamente un origen: venta, traslado, merma, devolución o ingreso
     public function origenUnico(): bool
     {
-        return count(array_filter([$this->idVenta, $this->idTraslado, $this->idMerma, $this->idDevolucion], fn($v) => $v !== null)) === 1;
+        return count(array_filter([$this->idVenta, $this->idTraslado, $this->idMerma, $this->idDevolucion, $this->idIngreso], fn($v) => $v !== null)) === 1;
     }
 }

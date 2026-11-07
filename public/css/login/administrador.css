@@ -82,9 +82,6 @@ a:focus-visible,button:focus-visible,.chk input:focus-visible{outline:3px solid 
 .top{padding:18px 16px}.logo b{font-size:30px}.logo span{display:none}.when b{font-size:18px}
 .panel{padding:26px 20px}
 }
-@media (prefers-reduced-motion:reduce){
-*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important}
-}
 
 /* ===== Estadística de fondo + animaciones extra ===== */
 .bgs{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -98,7 +95,7 @@ a:focus-visible,button:focus-visible,.chk input:focus-visible{outline:3px solid 
 @keyframes bgdraw{to{stroke-dashoffset:0}}
 @keyframes bgfade{to{opacity:1}}
 .bars{position:absolute;left:0;right:0;bottom:0;height:34%;display:flex;align-items:flex-end;gap:10px;padding:0 24px;opacity:.5}
-.bars i{flex:1;height:var(--h);border-radius:6px 6px 0 0;background:linear-gradient(180deg,rgba(228,0,43,.75),rgba(228,0,43,0));transform-origin:bottom;animation:bgbar 1s calc(var(--i)*.04s + .3s) cubic-bezier(.2,.8,.2,1) both,bgbreathe 4s calc(var(--i)*-.37s) ease-in-out infinite alternate}
+.bars i{flex:1;height:var(--h);border-radius:6px 6px 0 0;background:linear-gradient(180deg,rgba(228,0,43,.75),rgba(228,0,43,0));transform-origin:bottom;animation:bgbar 1s calc(var(--i)*.04s + .3s) cubic-bezier(.2,.8,.2,1) both,bgbreathe 10s calc(var(--i)*-.37s) ease-in-out infinite alternate}
 .bars i:nth-child(5n){background:linear-gradient(180deg,rgba(245,184,0,.7),rgba(245,184,0,0))}
 @keyframes bgbar{from{transform:scaleY(0)}}
 @keyframes bgbreathe{to{scale:1 .7}}
@@ -131,4 +128,17 @@ a:focus-visible,button:focus-visible,.chk input:focus-visible{outline:3px solid 
 .go.loading{pointer-events:none}
 .go .tx{position:relative;z-index:1}
 @media (max-width:600px){.donut,.bg-tag{display:none}.bars{gap:5px;padding:0 12px}}
-@media (prefers-reduced-motion:reduce){.bg-line .trav{display:none}.bg-line .ln,.bg-line .ln2{stroke-dashoffset:0}.bg-line .ar,.bg-tag{opacity:1}}
+
+/* ===== Fondo animado en bucle (login del administrador) ===== */
+.bg-line{animation:bgdrift 40s ease-in-out infinite alternate}
+@keyframes bgdrift{from{transform:translateX(0)}to{transform:translateX(-70px)}}
+.bgs::after{content:"";position:absolute;top:-20%;bottom:-20%;left:-45%;width:38%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.085),transparent);animation:bgsweep 24s ease-in-out infinite;pointer-events:none}
+@keyframes bgsweep{to{left:115%}}
+
+/* ===== El fondo sigue al mouse (cada capa se mueve a distinta velocidad) ===== */
+.bgs>*{transition:translate .7s cubic-bezier(.2,.8,.2,1)}
+.bg-line{translate:calc(var(--mx,0)*-26px) calc(var(--my,0)*-16px)}
+.bars{translate:calc(var(--mx,0)*-12px) calc(var(--my,0)*-7px)}
+.donut{translate:calc(var(--mx,0)*-46px) calc(var(--my,0)*-28px)}
+.dots{translate:calc(var(--mx,0)*-8px) calc(var(--my,0)*-5px)}
+.stage .blob{transition:translate .9s cubic-bezier(.2,.8,.2,1);translate:calc(var(--mx,0)*34px) calc(var(--my,0)*22px)}

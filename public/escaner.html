@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Escáner · MASS</title>
+<style>
+body{margin:0;background:#0f141b;color:#e8edf2;font:16px/1.4 system-ui,sans-serif;padding:14px;max-width:520px;margin:auto}
+h1{font-size:20px;margin:4px 0 10px}
+.vw{position:relative;border-radius:12px;overflow:hidden;background:#000}
+.vw:after{content:"";position:absolute;left:10%;right:10%;top:50%;height:2px;background:#4a82f5}
+video{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+#m{margin:10px 0;color:#94a1b0;font-size:14px}
+ul{list-style:none;padding:0;margin:0}
+li{padding:8px 12px;background:#182029;border-radius:8px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.r{display:flex;gap:8px;margin-top:12px}
+input{flex:1;font:inherit;padding:10px;border-radius:8px;border:1px solid #28323d;background:#182029;color:inherit}
+button{font:600 16px system-ui;padding:10px 16px;border-radius:8px;border:0;background:#4a82f5;color:#fff}
+</style></head>
+<body>
+<h1>MASS · Escáner del almacén</h1>
+<div class="vw"><video id="v" playsinline muted></video></div>
+<div id="m" role="status">Conectando con la computadora…</div>
+<ul id="l"></ul>
+<div class="r"><input id="man" inputmode="numeric" autocomplete="off" placeholder="¿Sin cámara? Escribe el código"><button id="go">Enviar</button></div>
+<script>
+// El enlace trae el token del QR: ?t=...  El celular no necesita iniciar sesión.
+const T=new URLSearchParams(location.search).get('t')||'';
+const $=i=>document.getElementById(i);
+let lc='',lt=0;
+
+function enviar(datos){
+  return fetch('index.php?r=escaner_enviar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,...datos})})
+    .then(async r=>({ok:r.ok,j:await r.json().catch(()=>({}))}));
+}
+function agregar(c,ok){
+  const li=document.createElement('li');
+  li.textContent=(ok?'✔ ':'✖ ')+c;
+  $('l').prepend(li);
+  while($('l').children.length>8)$('l').lastChild.remove();
+  if(navigator.vibrate)navigator.vibrate(60);
+}
+async function leer(c){
+  c=String(c||'').trim();
+  const t=Date.now();
+  if(!c||(c===lc&&t-lt<1800))return;
+  lc=c;lt=t;
+  try{
+    const r=await enviar({c});
+    agregar(c,r.ok);
+    $('m').textContent=r.ok?'Enviado al administrador · sigue escaneando':(r.j.mensaje||'No se pudo enviar.');
+  }catch(e){
+    agregar(c,false);
+    $('m').textContent='Sin conexión con el servidor.';
+  }
+}
+$('go').onclick=()=>{leer($('man').value);$('man').value=''};
+$('man').onkeydown=e=>{if(e.key==='Enter')$('go').click()};
+
+(async()=>{
+  if(!T){$('m').textContent='Enlace inválido: escanea de nuevo el QR desde la computadora.';return}
+  try{
+    const r=await enviar({hola:1});
+    if(!r.ok){$('m').textContent=r.j.mensaje||'El enlace venció. Genera un QR nuevo en la computadora.';return}
+  }catch(e){$('m').textContent='Sin conexión con el servidor.';return}
+
+  // El celular avisa cada 20 s que sigue conectado (el indicador de la PC se apaga a los 60 s sin señal)
+  setInterval(async()=>{try{const r=await enviar({hola:1});if(!r.ok)$('m').textContent=r.j.mensaje||'Se perdió la conexión.'}catch(e){}},20000);
+  if(!(window.isSecureContext&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
+    $('m').textContent='Este enlace es http y el celular bloquea la cámara. Genera el QR con la dirección https del túnel, o escribe el código.';
+    return;
+  }
+  let st;
+  try{
+    st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+  }catch(e){
+    $('m').textContent='No se pudo abrir la cámara (revisa el permiso). Puedes escribir el código.';
+    return;
+  }
+  const v=$('v');
+  v.srcObject=st;
+  try{await v.play()}catch(e){}
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen')}catch(e){}
+  $('m').textContent='Apunta la cámara al código de barras';
+
+  if('BarcodeDetector' in window){
+    const d=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
+    (async function loop(){
+      try{const r=await d.detect(v);if(r.length)leer(r[0].rawValue)}catch(e){}
+      setTimeout(loop,150);
+    })();
+  }else{
+    try{
+      await new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+      const lector=new ZXing.BrowserMultiFormatReader();
+      lector.decodeFromVideoElement(v,res=>{if(res)leer(res.getText())});
+    }catch(e){
+      $('m').textContent='No se cargó el lector de códigos. Escribe el número.';
+    }
+  }
+})();
+</script></body></html>

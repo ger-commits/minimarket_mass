@@ -1,145 +1,223 @@
 <?php
-// C: login del administrador y su panel. Solo entra quien sea Administrador con contraseña correcta.
-require_once __DIR__ . '/../models/EmpleadoRepository.php';
+// C: panel del administrador. Solo entra con sesión de administrador y solo opera sobre su propia tienda.
+require_once __DIR__ . '/../models/Sesion.php';
 require_once __DIR__ . '/../models/Administrador.php';
-require_once __DIR__ . '/../models/AdminPanelRepository.php';
+require_once __DIR__ . '/../models/Database.php';
+require_once __DIR__ . '/../models/SolicitudAnulacionRepository.php';
+require_once __DIR__ . '/../models/TurnoTrabajoRepository.php';
+require_once __DIR__ . '/../models/ProductoRepository.php';
+require_once __DIR__ . '/../models/TrasladoRepository.php';
+require_once __DIR__ . '/../models/MermaRepository.php';
+require_once __DIR__ . '/../models/ReporteRepository.php';
+require_once __DIR__ . '/../models/SolicitudProductoRepository.php';
 
 class AdminController
 {
-    public function mostrarLogin(string $dniAnterior = '', ?string $error = null): void
-    {
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        $_SESSION['csrf_admin'] = bin2hex(random_bytes(16));
-        $csrf = $_SESSION['csrf_admin'];
-        require __DIR__ . '/../views/auth/login_administrador.php';
-    }
-
-    public function login(): void
-    {
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        $dni = trim($_POST['dni'] ?? '');
-        $clave = $_POST['contrasena'] ?? '';
-        if (!hash_equals($_SESSION['csrf_admin'] ?? '', $_POST['csrf'] ?? '')) {
-            $this->mostrarLogin($dni, 'La sesión expiró. Intenta de nuevo.');
-            return;
-        }
-        if (!preg_match('/^[0-9]{8}$/', $dni)) {
-            $this->mostrarLogin($dni, 'El DNI debe tener 8 dígitos.');
-            return;
-        }
-        $empleado = (new EmpleadoRepository())->autenticar($dni, $clave);
-        if ($empleado === null) {
-            $this->mostrarLogin($dni, 'DNI o contraseña incorrectos.');
-            return;
-        }
-        if (!$empleado instanceof Administrador) {
-            $this->mostrarLogin($dni, 'Esta cuenta no tiene permiso de administrador.');
-            return;
-        }
-        session_regenerate_id(true);
-        $_SESSION['empleado'] = serialize($empleado);
-        header('Location: index.php?r=admin_panel');
-    }
-
     public function panel(): void
     {
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        $empleado = isset($_SESSION['empleado']) ? unserialize($_SESSION['empleado']) : null;
-        if (!$empleado instanceof Administrador) {
-            header('Location: index.php?r=admin_login');
-            exit;
-        }
+        $admin = $this->adminOLogin();
+        $t = $admin->idTienda;
+        $db = Database::conectar();
+
+        $st = $db->prepare('SELECT nombre_tienda FROM tienda WHERE id_tienda = ?');
+        $st->execute([$t]);
+        $tiendaNombre = (string)$st->fetchColumn();
+
+        // resumen de hoy, solo de la tienda del administrador
+        $st = $db->prepare(
+            "SELECT COALESCE(SUM(v.total), 0) AS total, COUNT(*) AS n
+               FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE s.id_tienda = ? AND v.estado = 'EMITIDA' AND DATE(v.fecha_hora) = CURDATE()"
+        );
+        $st->execute([$t]);
+        $hoy = $st->fetch();
+
+        $st = $db->prepare(
+            "SELECT COUNT(*) FROM stock st JOIN producto p ON p.id_producto = st.id_producto
+              WHERE st.id_tienda = ? AND st.cantidad_actual <= st.stock_minimo AND p.estado <> 'ELIMINADO'"
+        );
+        $st->execute([$t]);
+        $stockBajo = (int)$st->fetchColumn();
+
+        $st = $db->prepare(
+            'SELECT s.serie, v.numero_correlativo, v.fecha_hora, v.total, v.estado
+               FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE s.id_tienda = ? ORDER BY v.fecha_hora DESC LIMIT 15'
+        );
+        $st->execute([$t]);
+        $ventas = $st->fetchAll();
+
+        $st = $db->prepare(
+            "SELECT p.nombre_producto, st.cantidad_actual, st.stock_minimo
+               FROM stock st JOIN producto p ON p.id_producto = st.id_producto
+              WHERE st.id_tienda = ? AND p.estado <> 'ELIMINADO'
+              ORDER BY (st.cantidad_actual <= st.stock_minimo) DESC, p.nombre_producto LIMIT 60"
+        );
+        $st->execute([$t]);
+        $inventario = $st->fetchAll();
+
+        $st = $db->prepare(
+            "SELECT e.id_empleado, e.nombres, e.apellidos, r.nombre_rol
+               FROM empleado e JOIN rol r ON r.id_rol = e.id_rol
+              WHERE e.id_tienda = ? AND e.estado = 'ACTIVO' ORDER BY e.apellidos"
+        );
+        $st->execute([$t]);
+        $personal = $st->fetchAll();
+
+        $pendientes = (new SolicitudAnulacionRepository())->pendientesDeTienda($t);
+        $productosPendientes = (new SolicitudProductoRepository())->pendientesDeTienda($t);
+        $turnos = (new TurnoTrabajoRepository())->delDia($t, date('Y-m-d'));
+
+        $prodRepo = new ProductoRepository();
+        $productos = array_values(array_filter($prodRepo->listarAdmin($t), fn($p) => $p['estado'] !== 'ELIMINADO'));
+        $catalogos = $prodRepo->catalogos();
+
+        $trasRepo = new TrasladoRepository();
+        $tiendasDestino = $trasRepo->tiendasDestino($t);
+        $stockOrigen = $trasRepo->stockDisponible($t);
+        $historialTraslados = $trasRepo->historial($t);
+
+        // Mermas y reportes: consultas reales filtradas por la tienda del administrador.
+        $mermas = (new MermaRepository())->historial($t, 50);
+        $reportes = (new ReporteRepository())->todo($t);
+
+        $aviso = $_SESSION['aviso'] ?? null;
+        unset($_SESSION['aviso']);
+        $empleado = $admin;
+        $titulo = 'Panel del administrador';
         require __DIR__ . '/../views/admin/panel.php';
     }
 
-    // Datos JSON para el panel (solo lectura, solo de la tienda del administrador)
-    public function apiVentas(): void
+    // recibe los formularios del panel (solo POST, con token CSRF)
+    public function accion(): void
     {
-        $admin = $this->adminActivo();
-        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
-        $filas = (new AdminPanelRepository())->ventas($admin->idTienda);
-        $datos = array_map(function ($r) {
-            $anulada = $r['estado'] === 'ANULADA';
-            return [
-                'comprobante' => $r['serie'] . '-' . str_pad((string)$r['numero_correlativo'], 5, '0', STR_PAD_LEFT),
-                'fecha'       => date('d/m/Y H:i', strtotime($r['fecha_hora'])),
-                'tienda'      => $r['nombre_tienda'],
-                'cajero'      => $r['cajero'],
-                'medio'       => $r['medio'] ? ucfirst(mb_strtolower($r['medio'])) : null,
-                'total'       => number_format((float)$r['total'], 2, '.', ''),
-                'estado'      => $anulada ? 'Anulada' : 'Pagada',
-                'clase'       => $anulada ? 'bad' : 'ok',
-            ];
-        }, $filas);
-        $this->json(['ok' => true, 'datos' => $datos]);
+        $admin = $this->adminOLogin();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !hash_equals(Sesion::token(), $_POST['csrf'] ?? '')) {
+            $this->volver('La solicitud no es válida. Vuelve a intentarlo.', 'error');
+        }
+        try {
+            switch ($_POST['accion'] ?? '') {
+                case 'aprobar':
+                    $repo = new SolicitudAnulacionRepository();
+                    $solicitud = $repo->buscar((int)$_POST['id_solicitud']);
+                    // "ERROR" (el cliente se confundió) devuelve el producto al stock; Vencido o Dañado pasan a merma
+                    $vuelveAlStock = $solicitud && str_starts_with(mb_strtoupper(trim($solicitud->motivo)), 'ERROR');
+                    $repo->aprobar((int)$_POST['id_solicitud'], $admin);
+                    $this->volver($vuelveAlStock
+                        ? 'Anulación aprobada: la venta quedó anulada y el stock volvió al inventario.'
+                        : 'Anulación aprobada: la venta quedó anulada y el producto pasó a merma (no volvió al stock).');
+                case 'rechazar':
+                    (new SolicitudAnulacionRepository())->rechazar((int)$_POST['id_solicitud'], $admin, $_POST['motivo'] ?? '');
+                    $this->volver('Solicitud rechazada.');
+                case 'programar':
+                    (new TurnoTrabajoRepository())->programar(
+                        $admin,
+                        (int)$_POST['id_empleado'],
+                        $_POST['fecha'] ?? '',
+                        $_POST['hora_inicio'] ?? '',
+                        $_POST['hora_fin'] ?? ''
+                    );
+                    $this->volver('Turno programado.');
+                case 'producto_permitir':
+                    (new SolicitudProductoRepository())->responder($admin, (int)($_POST['id_solicitud_producto'] ?? 0), true);
+                    $this->volver('Producto permitido: el almacenero de tu tienda ya puede registrarlo.');
+                case 'producto_rechazar':
+                    (new SolicitudProductoRepository())->responder($admin, (int)($_POST['id_solicitud_producto'] ?? 0), false, (string)($_POST['motivo'] ?? ''));
+                    $this->volver('Producto rechazado. Se avisó al almacenero.');
+                case 'producto_descontinuar':
+                    (new ProductoRepository())->descontinuar((int)($_POST['id_producto'] ?? 0), $admin);
+                    $this->volver('Producto descontinuado en tu tienda. Ya no se vende aquí; su stock se conserva. Las otras tiendas no cambian.');
+                case 'producto_reactivar':
+                    (new ProductoRepository())->reactivar((int)($_POST['id_producto'] ?? 0), $admin);
+                    $this->volver('Producto reactivado en tu tienda.');
+                case 'producto_guardar':
+                    $prodRepo = new ProductoRepository();
+                    $idProd = (int)($_POST['id_producto'] ?? 0);
+                    if ($idProd > 0) {
+                        $prodRepo->actualizar($idProd, $_POST);
+                        $this->volver('Producto actualizado.');
+                    }
+                    $prodRepo->crear($_POST);
+                    $this->volver('Producto creado. Tiene stock 0 en cada tienda: registra su ingreso.');
+                case 'merma_registrar':
+                    (new MermaRepository())->registrar(
+                        $admin->idTienda,
+                        $admin->idEmpleado,
+                        (string)($_POST['motivo'] ?? ''),
+                        (string)($_POST['observacion'] ?? ''),
+                        [(int)($_POST['id_producto'] ?? 0) => (string)($_POST['cantidad'] ?? '')]
+                    );
+                    $this->volver('Merma registrada: el stock y el kardex fueron actualizados.');
+                case 'traslado_anular':
+                    (new TrasladoRepository())->anular($admin, (int)($_POST['id_traslado'] ?? 0), (string)($_POST['motivo'] ?? ''));
+                    $this->volver('Envío anulado: el stock volvió a tu tienda.');
+                case 'traslado_registrar':
+                    $items = [];
+                    foreach (($_POST['cantidad'] ?? []) as $idP => $cantP) {
+                        $items[] = ['id_producto' => (int)$idP, 'cantidad' => $cantP];
+                    }
+                    (new TrasladoRepository())->registrar(
+                        $admin,
+                        (int)($_POST['id_tienda_destino'] ?? 0),
+                        (string)($_POST['observacion'] ?? ''),
+                        $items
+                    );
+                    $this->volver('Traslado enviado: el stock salió de tu tienda y está en camino. Entrará a la tienda destino cuando su almacenero confirme la recepción.');
+                default:
+                    $this->volver('Acción no reconocida.', 'error');
+            }
+        } catch (InvalidArgumentException | RuntimeException $e) {
+            $this->volver($e->getMessage(), 'error');     // reglas de negocio: se muestran al administrador
+        } catch (Throwable $e) {
+            error_log('Panel admin: ' . $e->getMessage());  // errores técnicos: solo al log
+            $this->volver('No se pudo completar la acción.', 'error');
+        }
     }
 
-    public function apiPersonal(): void
+    private function adminOLogin(): Administrador
     {
-        $admin = $this->adminActivo();
-        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
-        $filas = (new AdminPanelRepository())->personal($admin->idTienda);
-        $datos = array_map(function ($r) {
-            $activo = $r['estado'] === 'ACTIVO';
-            return [
-                'nombre' => $r['nombres'] . ' ' . $r['apellidos'],
-                'dni'    => '••••••' . substr($r['dni'], -2),
-                'rol'    => ucfirst(mb_strtolower($r['nombre_rol'])),
-                'tienda' => $r['nombre_tienda'],
-                'estado' => $activo ? 'Activo' : 'Inactivo',
-                'clase'  => $activo ? 'ok' : 'bad',
-                'turno'  => $r['turno'],
-            ];
-        }, $filas);
-        $this->json(['ok' => true, 'datos' => $datos]);
+        $empleado = Sesion::empleado();
+        if (!$empleado instanceof Administrador) {
+            header('Location: index.php?r=administrador');
+            exit;
+        }
+        return $empleado;
     }
 
-    public function apiResumen(): void
+    private function volver(string $texto, string $tipo = 'ok'): void
     {
-        $admin = $this->adminActivo();
-        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
-        $repo = new AdminPanelRepository();
-        $hoy = $repo->ventasDelDia($admin->idTienda, 'hoy');
-        $ayer = $repo->ventasDelDia($admin->idTienda, 'ayer');
-        $conteos = $repo->conteosResumen($admin->idTienda);
-        $this->json(['ok' => true, 'datos' => [
-            'ventas_hoy'      => number_format((float)$hoy['total'], 2, '.', ''),
-            'transacciones'   => (int)$hoy['transacciones'],
-            'ventas_ayer'     => number_format((float)$ayer['total'], 2, '.', ''),
-            'trans_ayer'      => (int)$ayer['transacciones'],
-            'productos'       => $conteos['productos'],
-            'alertas'         => $conteos['alertas'],
-        ]]);
+        $_SESSION['aviso'] = ['texto' => $texto, 'tipo' => $tipo];
+        header('Location: index.php?r=admin');
+        exit;
     }
 
-    public function apiTiendas(): void
+    // Consulta ligera que el panel usa para saber si llegó una solicitud nueva o se resolvió una
+    public function pendientesJson(): void
     {
-        $admin = $this->adminActivo();
-        if ($admin === null) { $this->json(['ok' => false, 'error' => 'No autorizado'], 401); return; }
-        $filas = (new AdminPanelRepository())->tiendas();
-        $datos = array_map(function ($r) {
-            return [
-                'nombre'   => $r['nombre_tienda'],
-                'estado'   => $r['estado'] === 'ACTIVA' ? 'Activa' : 'Inactiva',
-                'clase'    => $r['estado'] === 'ACTIVA' ? 'ok' : 'bad',
-                'distrito' => $r['nombre_distrito'],
-            ];
-        }, $filas);
-        $this->json(['ok' => true, 'datos' => $datos]);
-    }
-
-    // Devuelve el administrador de la sesión o null si no lo es
-    private function adminActivo(): ?Administrador
-    {
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        $e = isset($_SESSION['empleado']) ? unserialize($_SESSION['empleado']) : null;
-        return $e instanceof Administrador ? $e : null;
-    }
-
-    private function json(array $cuerpo, int $codigo = 200): void
-    {
-        http_response_code($codigo);
+        $admin = $this->adminOLogin();
+        $t = $admin->idTienda;
+        // anulaciones + productos nuevos por autorizar: si cambia el total, el panel se recarga
+        $total = count((new SolicitudAnulacionRepository())->pendientesDeTienda($t))
+               + count((new SolicitudProductoRepository())->pendientesDeTienda($t));
+        // firma de lo que cambia en la tienda (ventas, stock, movimientos, turnos): si cambia, el panel se recarga
+        $db = Database::conectar();
+        $st = $db->prepare(
+            "SELECT COUNT(*) AS ventas, COALESCE(SUM(v.total), 0) AS monto
+               FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE s.id_tienda = ?"
+        );
+        $st->execute([$t]);
+        $v = $st->fetch();
+        $st = $db->prepare('SELECT COALESCE(SUM(cantidad_actual), 0) AS stock, (SELECT COUNT(*) FROM movimiento_stock WHERE id_tienda = ?) AS movs FROM stock WHERE id_tienda = ?');
+        $st->execute([$t, $t]);
+        $s = $st->fetch();
+        $st = $db->prepare("SELECT COUNT(*), COALESCE(SUM(estado = 'EN_CAMINO'), 0) FROM traslado_mercaderia WHERE id_tienda_origen = ? OR id_tienda_destino = ?");
+        $st->execute([$t, $t]);
+        $tr = $st->fetch(PDO::FETCH_NUM);
+        $firma = implode('|', [$v['ventas'], $v['monto'], $s['stock'], $s['movs'], $total, $tr[0], $tr[1]]);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($cuerpo, JSON_UNESCAPED_UNICODE);
+        header('Cache-Control: no-store');
+        echo json_encode(['ok' => true, 'total' => $total, 'firma' => $firma]);
     }
+
 }

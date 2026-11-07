@@ -1,7 +1,7 @@
 (function(){
 var host=document.querySelector('.stage')||document.querySelector('.side');
 var bgs=host.querySelector('.bgs');
-var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var still=false; /* animaciones siempre activas en esta pantalla */
 /* barras de fondo */
 var bars=bgs.querySelector('.bars'),H=[46,62,38,70,54,82,48,66,90,58,74,44,86,60,52,78,40,68,92,56,72,48,84,64,50,76,88,60,70,96];
 H.forEach(function(h,i){var b=document.createElement('i');b.style.setProperty('--h',h+'%');b.style.setProperty('--i',i);bars.appendChild(b);});

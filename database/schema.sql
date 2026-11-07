@@ -207,7 +207,9 @@ CREATE TABLE stock (
     id_producto     INT UNSIGNED      NOT NULL,
     cantidad_actual DECIMAL(10,3)     NOT NULL DEFAULT 0,
     stock_minimo    DECIMAL(10,3)     NOT NULL DEFAULT 0,
+    descontinuado   CHAR(1)           NOT NULL DEFAULT 'N',        -- 'S' = el producto ya no se vende en ESTA tienda
     CONSTRAINT pk_stock PRIMARY KEY (id_tienda, id_producto),
+    CONSTRAINT ck_stock_descontinuado CHECK (descontinuado IN ('S','N')),
     CONSTRAINT ck_stock_cantidad CHECK (cantidad_actual >= 0),   -- el stock nunca es negativo
     CONSTRAINT ck_stock_minimo CHECK (stock_minimo >= 0),
     CONSTRAINT fk_stock_tienda FOREIGN KEY (id_tienda) REFERENCES tienda (id_tienda),
@@ -225,6 +227,8 @@ CREATE TABLE caja_turno (
     monto_inicial       DECIMAL(10,2)      NOT NULL,
     fecha_hora_cierre   DATETIME           NULL,                 -- opcional: NULL mientras esta abierto
     monto_cierre        DECIMAL(10,2)      NULL,                 -- opcional: NULL mientras esta abierto
+    monto_esperado      DECIMAL(10,2)      NULL,                 -- efectivo que el sistema esperaba al cerrar (queda fijo)
+    observacion_cierre  VARCHAR(200)       NULL,                 -- motivo de la diferencia, si la hubo
     estado              VARCHAR(10)        NOT NULL DEFAULT 'ABIERTO',
     id_caja             SMALLINT UNSIGNED  NOT NULL,
     id_empleado         MEDIUMINT UNSIGNED NOT NULL,             -- cajero responsable
@@ -258,14 +262,37 @@ CREATE TABLE traslado_mercaderia (
     id_traslado       INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     fecha_hora        DATETIME          NOT NULL DEFAULT CURRENT_TIMESTAMP,
     observacion       VARCHAR(200)      NULL,                    -- opcional
+    estado            VARCHAR(10)       NOT NULL DEFAULT 'RECIBIDO',   -- EN_CAMINO (enviado), RECIBIDO (confirmado por el destino) o ANULADO (el origen lo cancelo y el stock volvio)
     id_tienda_origen  SMALLINT UNSIGNED NOT NULL,
     id_tienda_destino SMALLINT UNSIGNED NOT NULL,
-    id_empleado       MEDIUMINT UNSIGNED NOT NULL,
+    id_empleado       MEDIUMINT UNSIGNED NOT NULL,                 -- administrador de origen que envia
+    fecha_recepcion   DATETIME          NULL,
+    id_empleado_recibe MEDIUMINT UNSIGNED NULL,                    -- almacenero de destino que confirma
+    observacion_recepcion VARCHAR(200)  NULL,
     CONSTRAINT pk_traslado PRIMARY KEY (id_traslado),
     CONSTRAINT ck_traslado_tiendas CHECK (id_tienda_origen <> id_tienda_destino),
+    CONSTRAINT ck_traslado_estado CHECK (estado IN ('EN_CAMINO','RECIBIDO','ANULADO')),
     CONSTRAINT fk_traslado_origen FOREIGN KEY (id_tienda_origen) REFERENCES tienda (id_tienda),
     CONSTRAINT fk_traslado_destino FOREIGN KEY (id_tienda_destino) REFERENCES tienda (id_tienda),
-    CONSTRAINT fk_traslado_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
+    CONSTRAINT fk_traslado_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_traslado_recibe FOREIGN KEY (id_empleado_recibe) REFERENCES empleado (id_empleado)
+) ENGINE=InnoDB;
+
+-- Que se envio en cada traslado (una fila por producto y lote) y que se recibio.
+CREATE TABLE traslado_detalle (
+    id_detalle        INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+    id_traslado       INT UNSIGNED      NOT NULL,
+    id_producto       INT UNSIGNED      NOT NULL,
+    codigo_lote       VARCHAR(20)       NULL,                    -- vacio si el producto salio sin lote
+    fecha_vencimiento DATE              NULL,
+    cantidad_enviada  DECIMAL(10,3)     NOT NULL,
+    cantidad_recibida DECIMAL(10,3)     NULL,                    -- NULL mientras esta en camino
+    CONSTRAINT pk_traslado_detalle PRIMARY KEY (id_detalle),
+    CONSTRAINT ck_trasdet_enviada CHECK (cantidad_enviada > 0),
+    CONSTRAINT ck_trasdet_recibida CHECK (cantidad_recibida IS NULL OR (cantidad_recibida >= 0 AND cantidad_recibida <= cantidad_enviada)),
+    CONSTRAINT fk_trasdet_traslado FOREIGN KEY (id_traslado) REFERENCES traslado_mercaderia (id_traslado),
+    CONSTRAINT fk_trasdet_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto),
+    KEY ix_trasdet_traslado (id_traslado)
 ) ENGINE=InnoDB;
 
 -- Cabecera de la merma (perdida de mercaderia); su tienda sale del empleado que la registra.
@@ -281,6 +308,16 @@ CREATE TABLE merma (
 ) ENGINE=InnoDB;
 
 -- Lotes de productos perecibles en cada tienda: codigo de lote, fecha de vencimiento y cantidad que queda.
+-- Cabecera de ingresos de mercadería registrados por almacén (compras/recepción externa).
+CREATE TABLE ingreso_mercaderia (
+    id_ingreso  INT UNSIGNED       NOT NULL AUTO_INCREMENT,
+    fecha_hora  DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    observacion VARCHAR(200)       NULL,
+    id_empleado MEDIUMINT UNSIGNED NOT NULL,
+    CONSTRAINT pk_ingreso PRIMARY KEY (id_ingreso),
+    CONSTRAINT fk_ingreso_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
+) ENGINE=InnoDB;
+
 CREATE TABLE lote_producto (
     id_lote           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
     codigo_lote       VARCHAR(20)       NOT NULL,
@@ -467,7 +504,7 @@ CREATE TABLE detalle_devolucion (
     CONSTRAINT fk_detdev_detalle FOREIGN KEY (id_detalle_venta) REFERENCES detalle_venta (id_detalle_venta)
 ) ENGINE=InnoDB;
 
--- Kardex: cada cambio de stock, con un unico origen (venta, traslado, merma o devolucion).
+-- Kardex: cada cambio de stock tiene un único origen (venta, traslado, merma, devolución o ingreso).
 CREATE TABLE movimiento_stock (
     id_movimiento      BIGINT UNSIGNED    NOT NULL AUTO_INCREMENT,
     fecha_hora         DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -482,12 +519,13 @@ CREATE TABLE movimiento_stock (
     id_traslado        INT UNSIGNED       NULL,                  -- origen (uno solo)
     id_merma           INT UNSIGNED       NULL,                  -- origen (uno solo)
     id_devolucion      INT UNSIGNED       NULL,                  -- origen (uno solo)
+    id_ingreso         INT UNSIGNED      NULL,                  -- ingreso de mercadería (uno solo)
     id_lote            INT UNSIGNED       NULL,                  -- lote afectado (solo productos con lote)
     CONSTRAINT pk_movimiento PRIMARY KEY (id_movimiento),
     CONSTRAINT ck_movimiento_cantidad CHECK (cantidad > 0),
     CONSTRAINT ck_movimiento_saldo CHECK (stock_nuevo >= 0),
     CONSTRAINT ck_movimiento_origen CHECK (
-        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) = 1),
+        (id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_devolucion IS NOT NULL) + (id_ingreso IS NOT NULL) = 1),
     CONSTRAINT fk_movimiento_stock FOREIGN KEY (id_tienda, id_producto) REFERENCES stock (id_tienda, id_producto),
     CONSTRAINT fk_movimiento_tipo FOREIGN KEY (id_tipo_movimiento) REFERENCES tipo_movimiento (id_tipo_movimiento),
     CONSTRAINT fk_movimiento_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado),
@@ -495,5 +533,40 @@ CREATE TABLE movimiento_stock (
     CONSTRAINT fk_movimiento_traslado FOREIGN KEY (id_traslado) REFERENCES traslado_mercaderia (id_traslado),
     CONSTRAINT fk_movimiento_merma FOREIGN KEY (id_merma) REFERENCES merma (id_merma),
     CONSTRAINT fk_movimiento_devolucion FOREIGN KEY (id_devolucion) REFERENCES devolucion_venta (id_devolucion),
+    CONSTRAINT fk_movimiento_ingreso FOREIGN KEY (id_ingreso) REFERENCES ingreso_mercaderia (id_ingreso),
     CONSTRAINT fk_movimiento_lote FOREIGN KEY (id_lote) REFERENCES lote_producto (id_lote)
+) ENGINE=InnoDB;
+
+-- Producto nuevo: el almacenero escanea un codigo que no existe y el administrador de SU misma tienda lo permite o rechaza.
+CREATE TABLE solicitud_producto (
+    id_solicitud_producto INT UNSIGNED       NOT NULL AUTO_INCREMENT,
+    codigo_barras         VARCHAR(14)        NOT NULL,
+    estado                VARCHAR(10)        NOT NULL DEFAULT 'PENDIENTE',   -- PENDIENTE, APROBADA, RECHAZADA, USADA
+    fecha_hora_solicitud  DATETIME           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_hora_respuesta  DATETIME           NULL,
+    motivo_rechazo        VARCHAR(150)       NULL,
+    id_tienda             SMALLINT UNSIGNED  NOT NULL,
+    id_empleado_solicita  MEDIUMINT UNSIGNED NOT NULL,
+    id_empleado_responde  MEDIUMINT UNSIGNED NULL,
+    id_producto           INT UNSIGNED       NULL,
+    CONSTRAINT pk_solicitud_producto PRIMARY KEY (id_solicitud_producto),
+    CONSTRAINT ck_solprod_estado CHECK (estado IN ('PENDIENTE','APROBADA','RECHAZADA','USADA')),
+    CONSTRAINT ck_solprod_codigo CHECK (codigo_barras REGEXP '^[0-9]{8,14}$'),
+    CONSTRAINT fk_solprod_tienda    FOREIGN KEY (id_tienda)            REFERENCES tienda (id_tienda),
+    CONSTRAINT fk_solprod_solicita  FOREIGN KEY (id_empleado_solicita) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_solprod_responde  FOREIGN KEY (id_empleado_responde) REFERENCES empleado (id_empleado),
+    CONSTRAINT fk_solprod_producto  FOREIGN KEY (id_producto)          REFERENCES producto (id_producto),
+    KEY ix_solprod_tienda_estado (id_tienda, estado)
+) ENGINE=InnoDB;
+
+-- Avisos para el almacen de cada tienda (producto permitido o rechazado, producto eliminado, etc.).
+CREATE TABLE IF NOT EXISTS notificacion_almacen (
+    id_notificacion BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id_tienda       SMALLINT UNSIGNED NOT NULL,
+    tipo            VARCHAR(30)       NOT NULL,
+    mensaje         VARCHAR(255)      NOT NULL,
+    creado          DATETIME          NOT NULL,
+    CONSTRAINT pk_notificacion_almacen PRIMARY KEY (id_notificacion),
+    CONSTRAINT fk_notificacion_tienda FOREIGN KEY (id_tienda) REFERENCES tienda (id_tienda),
+    KEY ix_notificacion_tienda (id_tienda, id_notificacion)
 ) ENGINE=InnoDB;

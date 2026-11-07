@@ -37,7 +37,7 @@ class TurnoTrabajoRepository
         return (int)$this->pdo->lastInsertId();
     }
 
-    // Rol de turnos de una tienda en un día.
+    // Turnos de una tienda en un día.
     public function delDia(int $idTienda, string $fecha): array
     {
         $st = $this->pdo->prepare(
@@ -53,10 +53,47 @@ class TurnoTrabajoRepository
         return $st->fetchAll();
     }
 
+    // Turnos de una tienda desde $desde durante 7 días (para la vista semanal)
+    public function semana(int $idTienda, string $desde): array
+    {
+        $st = $this->pdo->prepare(
+            "SELECT tt.id_turno_trabajo, tt.fecha, CONCAT(e.nombres, ' ', e.apellidos) AS empleado, r.nombre_rol,
+                    tt.hora_inicio, tt.hora_fin
+               FROM turno_trabajo tt
+               JOIN empleado e ON e.id_empleado = tt.id_empleado
+               JOIN rol r      ON r.id_rol = e.id_rol
+              WHERE e.id_tienda = ? AND tt.fecha BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+              ORDER BY tt.fecha, tt.hora_inicio, e.apellidos"
+        );
+        $st->execute([$idTienda, $desde, $desde]);
+        return $st->fetchAll();
+    }
+
+    // Cancela (borra) un turno. Solo de empleados de la tienda del administrador, y solo si es de hoy en adelante.
+    public function cancelar(Administrador $admin, int $idTurno): void
+    {
+        $st = $this->pdo->prepare(
+            'SELECT tt.fecha, e.id_tienda
+               FROM turno_trabajo tt
+               JOIN empleado e ON e.id_empleado = tt.id_empleado
+              WHERE tt.id_turno_trabajo = ?'
+        );
+        $st->execute([$idTurno]);
+        $turno = $st->fetch();
+        if (!$turno) throw new RuntimeException('El turno no existe.');
+        if (!$admin->puedeProgramarTurno((int)$turno['id_tienda'])) {
+            throw new RuntimeException('Solo puedes cancelar turnos de tu tienda.');
+        }
+        if ($turno['fecha'] < date('Y-m-d')) {
+            throw new RuntimeException('No se pueden cancelar turnos de días anteriores.');
+        }
+        $this->pdo->prepare('DELETE FROM turno_trabajo WHERE id_turno_trabajo = ?')->execute([$idTurno]);
+    }
+
     public function deEmpleado(int $idEmpleado): array
     {
         $st = $this->pdo->prepare('SELECT * FROM turno_trabajo WHERE id_empleado = ? ORDER BY fecha');
         $st->execute([$idEmpleado]);
-        return array_map(fn($f) => TurnoTrabajo::desdeFila($f), $st->fetchAll());
+        return array_map(fn($f) => TurnoTrabajo::desde($f), $st->fetchAll());
     }
 }

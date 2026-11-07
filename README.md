@@ -35,18 +35,17 @@ minimarket_mass/
 
 Las páginas independientes también se sirven desde `public/`, con sus recursos separados:
 
-- `public/almacenamiento__.html` carga `public/css/almacenamiento.css` y `public/js/almacenamiento.js`.
+- `index.php?r=stock` muestra el diseño de almacenamiento inspirado en `public/almacenamiento__.html`, protegido por sesión y conectado a MySQL.
 - `public/panel_administrador_mass.html` carga `public/css/panel-administrador.css` y `public/js/panel-administrador.js`.
 - `public/login_almacenero.html` carga `public/css/login/almacenero.css` y `public/js/login/almacenero/login.js`.
-- `public/login_administrador.html` carga `public/css/login/administrador.css` y los scripts `public/js/login/administrador/`.
 
-Así, el HTML contiene la estructura de cada pantalla y los estilos y la lógica JavaScript quedan organizados en sus carpetas correspondientes. Se accede a ellas desde el servidor con `/almacenamiento__.html` y `/panel_administrador_mass.html`.
+La pantalla de almacenamiento usa `views/stock/app.php`, `public/css/almacenamiento.css` y `public/js/almacenamiento.js`. El archivo `public/almacenamiento__.html` redirige a la ruta protegida `index.php?r=stock`.
 
 ## Base de datos
 
 La base tiene **30 tablas**. Ejecuta los scripts de `database/` en este orden:
 
-1. `schema.sql`: crea la base y las tablas (**borra** `minimarket_mass` si ya existía)
+1. `schema.sql`: crea la base y las tablas (**borra** `minimarket_mass` si ya existía; la versión actual ya incluye ingresos de almacén)
 2. `datos.sql`: datos de prueba
 3. `consultas.sql`: consultas de ejemplo
 4. `boleta.sql`: vista `vw_comprobante` y procedimiento `sp_boleta`
@@ -62,7 +61,7 @@ El diseño completo está en [`docs/diseno_bd.md`](docs/diseno_bd.md) y el diagr
    ```
 2. Importa los scripts de `database/` en MySQL (orden de arriba).
 3. Copia `.env.example` como `.env` y completa tus datos: la conexión a MySQL (por defecto `root` sin contraseña en `localhost`) y `CAJA_ID`, el `id_caja` fijo de esa terminal (en `datos.sql`: 1 y 2 = Cayma, 3 y 4 = Cerro Colorado, 5 y 6 = Yanahuara). Sin `.env` se usan los valores por defecto de la conexión, pero el login de cajero no funciona hasta definir `CAJA_ID`.
-4. Inicia el servidor desde la raíz del proyecto (la carpeta `storage/` debe poder escribirse):
+4. En Laragon inicia Apache y MySQL; también puedes iniciar el servidor desde la raíz del proyecto (la carpeta `storage/` debe poder escribirse):
    ```bash
    php -S localhost:8000 -t public
    ```
@@ -141,5 +140,21 @@ ger-commits
 
 ## Accesos por rol
 
-- Almacenero: `http://localhost:8000/login_almacenero.html`
-- Administrador: `http://localhost:8000/login_administrador.html`
+- Almacenero: `http://localhost/minimarket_mass/public/index.php?r=almacenero`
+- Administrador: `http://localhost/minimarket_mass/public/index.php?r=administrador`
+
+
+## Actualización de almacén y reportes (noviembre 2026)
+
+- En una base nueva, ejecutar `database/schema.sql` y luego `database/datos.sql` como indica la guía.
+- En una base existente, hacer una copia de seguridad y ejecutar UNA SOLA VEZ `database/migracion_001_ingresos_almacen.sql`.
+- El perfil almacenero ahora registra ingresos, mermas, lotes, consulta el kardex y ve traslados de su tienda.
+- El ingreso registra cabecera en `ingreso_mercaderia`, actualiza `stock` y agrega `movimiento_stock` (tipo 7) dentro de una transacción.
+- Los traslados actuales son inmediatos: el administrador que los registra descuenta stock de origen y suma stock en destino. No existe un estado “en tránsito” ni un botón separado de recepción en el diseño actual.
+- El administrador dispone de registro/historial de mermas y reportes filtrados por su tienda.
+- Copiar `.env.example` como `.env` y configurar host, base, usuario y contraseña de MySQL de Laragon. No compartir el `.env` con credenciales.
+
+
+## Almacenamiento conectado a MySQL
+
+El módulo de almacén tiene diseño renovado y operaciones persistentes para ingresos, mermas, lotes, stock mínimo y Kardex. Consulta `INSTALACION_LARAGON.md` para distinguir una instalación nueva de una migración de la base existente.

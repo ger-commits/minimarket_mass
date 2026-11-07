@@ -101,3 +101,22 @@ th{background:#fffdf6}
 @media(max-width:900px){.welcome-art{right:4%;opacity:.55}.banner-stamp{display:none}}
 @media(max-width:760px){.main{padding-left:15px;padding-right:15px}.welcome-banner{padding:23px 20px;min-height:195px}.welcome-art{right:-52px;opacity:.28}.welcome-copy{max-width:90%}.quick-strip{grid-template-columns:repeat(2,1fr)}.quick-strip button{padding:11px}.banner-stamp{display:none}}
 @media(max-width:430px){.quick-strip{gap:7px}.quick-strip button{gap:7px;padding:9px}.quick-ico{width:32px;height:32px}.quick-strip small{font-size:8px}.welcome-meta{flex-wrap:wrap}}
+
+/* Barra lateral fija: el menú se ajusta a la pantalla y "Cerrar sesión" siempre queda visible abajo */
+.sidebar{overflow:hidden}
+.sidebar .nav{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding-right:4px}
+.sidebar .sidebar-bottom{flex:0 0 auto}
+@media (max-height:860px){
+  .sidebar{padding:16px 14px}
+  .brand{padding-bottom:14px}
+  .brand-mark{width:36px;height:36px}
+  .store-label{padding:10px 12px 6px}
+  .nav{gap:3px}
+  .nav button{padding:9px 12px}
+  .user-card{padding-top:10px}
+}
+@media (max-height:700px){
+  .brand-mark{width:32px;height:32px}
+  .nav button{padding:7px 12px;font-size:14px}
+  .nav button .count{font-size:11px}
+}
