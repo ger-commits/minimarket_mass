@@ -158,3 +158,7 @@ ger-commits
 ## Almacenamiento conectado a MySQL
 
 El módulo de almacén tiene diseño renovado y operaciones persistentes para ingresos, mermas, lotes, stock mínimo y Kardex. Consulta `INSTALACION_LARAGON.md` para distinguir una instalación nueva de una migración de la base existente.
+
+## Kanban del proyecto
+
+Seguimiento de tareas pendientes y completadas: [`docs/kanban.md`](docs/kanban.md).
